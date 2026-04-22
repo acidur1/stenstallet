@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import AuthScreen from "./AuthScreen";
 
 // ── Firebase ─────────────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -13,6 +15,7 @@ const firebaseConfig = {
 };
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 const saveDoc = async (path, data) => {
   try { await setDoc(doc(db, ...path.split("/")), data, { merge: true }); }
@@ -126,6 +129,8 @@ const THEMES = {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [user, setUser]                        = useState(null);
+  const [authLoading, setAuthLoading]          = useState(true);
   const [darkMode, setDarkMode]               = useState(true);
   const [persons, setPersons]                 = useState([]);
   const [horses, setHorses]                   = useState([]);
@@ -153,6 +158,14 @@ export default function App() {
   const [showIdentity, setShowIdentity]       = useState(false);
 
   const T = darkMode ? THEMES.dark : THEMES.light;
+
+  // ── Firebase: auth ────────────────────────────────────────────────────────
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+  }, []);
 
   // ── Firebase: config (static listeners) ──────────────────────────────────
   useEffect(() => {
@@ -282,8 +295,16 @@ export default function App() {
   const formBox   = { background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10, padding: 14 };
   const btnSmall  = (extra = {}) => ({ padding:"5px 10px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:"500", ...extra });
 
-  if (loading) return (
+  if (authLoading) return (
     <div style={{ minHeight:"100vh", background:THEMES.dark.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"system-ui", color:"#4db8d4", fontSize:16 }}>
+      Laddar Stenstallet…
+    </div>
+  );
+
+  if (!user) return <AuthScreen auth={auth} />;
+
+  if (loading) return (
+    <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"system-ui", color:T.accent, fontSize:16 }}>
       Laddar Stenstallet…
     </div>
   );
@@ -341,6 +362,14 @@ export default function App() {
             }}>
               {darkMode ? "☀️" : "🌙"}
               <span style={{ fontSize:11, color:T.textMuted }}>{darkMode ? "Ljust" : "Mörkt"}</span>
+            </button>
+            <button onClick={() => signOut(auth)} title={user.email} style={{
+              background:"transparent", border:`1px solid ${T.cardBorder}`,
+              borderRadius:8, padding:"6px 10px", cursor:"pointer",
+              fontSize:13, color:T.textMuted, display:"flex", alignItems:"center", gap:5,
+            }}>
+              <span style={{ maxWidth:100, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontSize:11 }}>{user.email}</span>
+              <span style={{ fontSize:11 }}>↩</span>
             </button>
             {[["vecka","📅 Vecka"],["personer","👤 Personal"]].map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)} style={{
