@@ -31,7 +31,9 @@ function urlBase64ToUint8Array(b64) {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DAYS       = ["Mån","Tis","Ons","Tor","Fre","Lör","Sön"];
 const DAYS_SHORT = ["M","T","O","T","F","L","S"];
-const SV_MONTHS  = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+const SV_MONTHS      = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+const SV_MONTHS_FULL = ["Januari","Februari","Mars","April","Maj","Juni","Juli","Augusti","September","Oktober","November","December"];
+const DAYS_FULL      = ["Måndag","Tisdag","Onsdag","Torsdag","Fredag","Lördag","Söndag"];
 const MEALS = [
   { id: "morgon", label: "Morgon", icon: "🔆", time: "07:00" },
   { id: "lunch",  label: "Lunch",  icon: "🌤", time: "12:00" },
@@ -128,7 +130,6 @@ export default function App() {
   const [persons, setPersons]                 = useState([]);
   const [horses, setHorses]                   = useState([]);
   const [assignments, setAssignments]         = useState({});
-  const [done, setDone]                       = useState({});
   const [loading, setLoading]                 = useState(true);
   const [activeDay, setActiveDay]             = useState("Mån");
   const [tab, setTab]                         = useState("vecka");
@@ -139,7 +140,6 @@ export default function App() {
   const [newPersonName, setNewPersonName]     = useState("");
   const [newHorseName, setNewHorseName]       = useState("");
   const [newHorseNote, setNewHorseNote]       = useState("");
-  const [menuOpen, setMenuOpen]               = useState(false);
   const [editingPersonId, setEditingPersonId] = useState(null);
   const [editPersonName, setEditPersonName]   = useState("");
   const [editPersonColor, setEditPersonColor] = useState("");
@@ -168,18 +168,13 @@ export default function App() {
     return () => unsubs.forEach(u => u());
   }, []);
 
-  // ── Firebase: assignments och done per vecka ──────────────────────────────
+  // ── Firebase: assignments per vecka ──────────────────────────────────────
   useEffect(() => {
     const weekKey = getWeekKey(weekOffset);
-    const unsubs = [
-      onSnapshot(doc(db, "config", `assignments_${weekKey}`), snap => {
-        setAssignments(snap.exists() ? (snap.data().map || {}) : {});
-      }),
-      onSnapshot(doc(db, "schedule", `done_${weekKey}`), snap => {
-        setDone(snap.exists() ? (snap.data().map || {}) : {});
-      }),
-    ];
-    return () => unsubs.forEach(u => u());
+    const unsub = onSnapshot(doc(db, "config", `assignments_${weekKey}`), snap => {
+      setAssignments(snap.exists() ? (snap.data().map || {}) : {});
+    });
+    return () => unsub();
   }, [weekOffset]);
 
   // Visa identitetsval när appen laddats och ingen identitet är vald
@@ -223,15 +218,6 @@ export default function App() {
     saveDoc(`config/assignments_${getWeekKey(weekOffset)}`, { map });
     setEditingSlot(null);
   };
-  const toggleDone = (day, mealId, horseId) => {
-    const k = `${day}-${mealId}-${horseId}`;
-    const map = { ...done, [k]: !done[k] };
-    setDone(map);
-    saveDoc(`schedule/done_${getWeekKey(weekOffset)}`, { map });
-  };
-  const mealDoneCount = (day, mealId) =>
-    horses.filter(h => done[`${day}-${mealId}-${h.id}`]).length;
-
   const addPerson = () => {
     if (!newPersonName.trim()) return;
     const newP = { id: Date.now(), name: newPersonName.trim(), color: PERSON_COLORS[persons.length % PERSON_COLORS.length] };
@@ -268,6 +254,11 @@ export default function App() {
     const list = persons.map(p => p.id === id ? { ...p, name: editPersonName.trim(), color: editPersonColor } : p);
     setPersons(list); saveDoc("config/persons", { list }); setEditingPersonId(null);
   };
+  const copyToNextWeek = async () => {
+    const nextWeekKey = getWeekKey(weekOffset + 1);
+    await saveDoc(`config/assignments_${nextWeekKey}`, { map: { ...assignments } });
+  };
+
   const startEditHorse = (h) => { setEditingHorseId(h.id); setEditHorseName(h.name); setEditHorseNote(h.note || ""); };
   const saveHorse = (id) => {
     if (!editHorseName.trim()) return;
@@ -290,7 +281,6 @@ export default function App() {
   };
   const formBox   = { background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10, padding: 14 };
   const btnSmall  = (extra = {}) => ({ padding:"5px 10px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:"500", ...extra });
-  const NAV = [["vecka","📅 Vecka"],["dag","📋 Dag"],["personer","👤 Personal"]];
 
   if (loading) return (
     <div style={{ minHeight:"100vh", background:THEMES.dark.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"system-ui", color:"#4db8d4", fontSize:16 }}>
@@ -303,10 +293,10 @@ export default function App() {
 
       {/* ── Identitetsval-overlay ── */}
       {showIdentity && (
-        <div style={{ position:"fixed", inset:0, zIndex:200, background: darkMode ? "rgba(10,12,20,0.97)" : "rgba(244,246,251,0.97)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
-          <span style={{ fontSize:40, marginBottom:16 }}>🐴</span>
-          <h2 style={{ margin:"0 0 6px", fontSize:22, fontWeight:"800", color:T.text }}>Vem är du?</h2>
-          <p style={{ margin:"0 0 24px", fontSize:14, color:T.textMuted, textAlign:"center" }}>Välj ditt namn för att få påminnelser om dina fodringspass.</p>
+        <div style={{ position:"fixed", inset:0, zIndex:200, background: darkMode ? "rgba(10,12,20,0.97)" : "rgba(244,246,251,0.97)", display:"flex", flexDirection:"column", alignItems:"center", overflowY:"auto", padding:"32px 24px 40px" }}>
+          <span style={{ fontSize:40, marginBottom:16, flexShrink:0 }}>🐴</span>
+          <h2 style={{ margin:"0 0 6px", fontSize:22, fontWeight:"800", color:T.text, flexShrink:0 }}>Vem är du?</h2>
+          <p style={{ margin:"0 0 24px", fontSize:14, color:T.textMuted, textAlign:"center", flexShrink:0 }}>Välj ditt namn för att få påminnelser om dina fodringspass.</p>
           <div style={{ display:"flex", flexDirection:"column", gap:10, width:"100%", maxWidth:320 }}>
             {persons.map(p => (
               <button key={p.id} onClick={() => selectIdentity(p.id)} style={{
@@ -318,10 +308,14 @@ export default function App() {
                 <span style={{ fontSize:17, fontWeight:"600", color:T.text }}>{p.name}</span>
               </button>
             ))}
+            <button onClick={() => { localStorage.setItem("stenPersonId", "none"); setMyPersonId("none"); setShowIdentity(false); }} style={{
+              padding:"14px 18px", borderRadius:14, cursor:"pointer", textAlign:"center",
+              background:"transparent", border:`2px dashed ${T.cardBorder}`,
+              color:T.textMuted, fontSize:15, fontWeight:"500",
+            }}>
+              Jag är inte med i schemat
+            </button>
           </div>
-          <button onClick={() => { localStorage.setItem("stenPersonId", "none"); setMyPersonId("none"); setShowIdentity(false); }} style={{ marginTop:20, background:"transparent", border:"none", color:T.textFaint, fontSize:13, cursor:"pointer", textDecoration:"underline" }}>
-            Fortsätt utan notiser
-          </button>
         </div>
       )}
 
@@ -339,7 +333,7 @@ export default function App() {
               <p style={{ margin:0, fontSize:9, color:T.textFaint, letterSpacing:"0.15em", textTransform:"uppercase" }}>Fodringsschema</p>
             </div>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
             <button onClick={() => setDarkMode(d => !d)} style={{
               background:"transparent", border:`1px solid ${T.cardBorder}`,
               borderRadius:8, padding:"6px 10px", cursor:"pointer",
@@ -348,27 +342,17 @@ export default function App() {
               {darkMode ? "☀️" : "🌙"}
               <span style={{ fontSize:11, color:T.textMuted }}>{darkMode ? "Ljust" : "Mörkt"}</span>
             </button>
-            <button onClick={() => setMenuOpen(o => !o)} style={{
-              background: menuOpen ? T.tabActiveBg : "transparent",
-              border:`1px solid ${menuOpen ? T.accent : T.tabBorder}`,
-              borderRadius:8, padding:"7px 12px", cursor:"pointer",
-              color: menuOpen ? "#fff" : T.textMuted, fontSize:16, lineHeight:1,
-            }}>☰</button>
-          </div>
-        </div>
-        {menuOpen && (
-          <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:4, borderTop:`1px solid ${T.tabBorder}`, paddingTop:10 }}>
-            {NAV.map(([t, label]) => (
-              <button key={t} onClick={() => { setTab(t); setMenuOpen(false); }} style={{
+            {[["vecka","📅 Vecka"],["personer","👤 Personal"]].map(([t, label]) => (
+              <button key={t} onClick={() => setTab(t)} style={{
                 background: tab===t ? T.tabActiveBg : "transparent",
                 border:`1px solid ${tab===t ? T.accent : T.tabBorder}`,
-                color: tab===t ? T.tabActiveText : T.textMuted,
-                borderRadius:7, padding:"10px 14px", cursor:"pointer",
-                fontSize:14, fontWeight:tab===t ? "600":"400", textAlign:"left",
+                borderRadius:8, padding:"6px 10px", cursor:"pointer",
+                color: tab===t ? "#fff" : T.textMuted, fontSize:12, fontWeight: tab===t ? "600":"400",
+                whiteSpace:"nowrap",
               }}>{label}</button>
             ))}
           </div>
-        )}
+        </div>
       </header>
 
       <main style={{ padding:"12px 8px 60px" }}>
@@ -398,11 +382,23 @@ export default function App() {
               }}>›</button>
             </div>
 
+            {weekOffset === 0 && Object.keys(assignments).length > 0 && (
+              <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
+                <button onClick={copyToNextWeek} style={{
+                  display:"flex", alignItems:"center", gap:6, padding:"7px 12px",
+                  background:T.cardBg, border:`1px solid ${T.cardBorder}`,
+                  borderRadius:8, cursor:"pointer", color:T.textMuted, fontSize:12, fontWeight:"500",
+                }}>
+                  📋 Kopiera till nästa vecka
+                </button>
+              </div>
+            )}
+
             {/* Idag-sektion */}
             {weekOffset === 0 && todayDayIdx >= 0 && (
               <div style={{ marginBottom:16, padding:"12px 14px", background:T.cardBg, border:`1px solid ${T.accent}55`, borderRadius:14, boxShadow: darkMode ? "0 0 0 1px #4db8d420" : "0 0 0 1px #2563eb15" }}>
                 <div style={{ fontSize:11, fontWeight:"700", color:T.accent, letterSpacing:"0.08em", marginBottom:10 }}>
-                  IDAG — {DAYS[todayDayIdx].toUpperCase()} {weekDates[todayDayIdx].getDate()} {SV_MONTHS[weekDates[todayDayIdx].getMonth()].toUpperCase()}
+                  {DAYS_FULL[todayDayIdx]} {weekDates[todayDayIdx].getDate()} {SV_MONTHS_FULL[weekDates[todayDayIdx].getMonth()]}
                 </div>
                 <div style={{ display:"flex", gap:6 }}>
                   {MEALS.map(meal => {
@@ -415,6 +411,7 @@ export default function App() {
                         border:`1.5px solid ${p ? p.color+"66" : T.cardBorder}`,
                       }}>
                         <div style={{ fontSize:16, lineHeight:1 }}>{meal.icon}</div>
+                        <div style={{ fontSize:9, color:T.accent, fontWeight:"600", marginTop:2 }}>{meal.time}</div>
                         <div style={{ width:26, height:26, borderRadius:"50%", background: p ? p.color : T.subtleBorder, margin:"6px auto 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:"700" }}>
                           {p ? p.name[0] : "?"}
                         </div>
@@ -441,7 +438,7 @@ export default function App() {
                     {DAYS.map((d, i) => {
                       const isToday = i === todayDayIdx;
                       return (
-                        <th key={d} style={{ padding:"0 0 8px 0", textAlign:"center", borderBottom:`2px solid ${isToday ? T.accent : T.cardBorder}` }}>
+                        <th key={d} onClick={() => { setActiveDay(d); setTab("dag"); }} style={{ padding:"0 0 8px 0", textAlign:"center", borderBottom:`2px solid ${isToday ? T.accent : T.cardBorder}`, cursor:"pointer" }}>
                           <div style={{
                             display:"inline-block", fontSize:11, fontWeight:"700",
                             color: isToday ? "#fff" : T.textMuted,
@@ -463,6 +460,7 @@ export default function App() {
                         <td style={{ padding:"4px 4px 4px 0", borderBottom: isLast ? "none" : `1px solid ${T.rowBorder}`, verticalAlign:"middle" }}>
                           <div style={{ fontSize:16, lineHeight:1, textAlign:"center" }}>{meal.icon}</div>
                           <div style={{ fontSize:8, fontWeight:"600", color:T.textMuted, marginTop:2, lineHeight:1.2, textAlign:"center", wordBreak:"break-word" }}>{meal.label}</div>
+                          <div style={{ fontSize:8, fontWeight:"600", color:T.accent, marginTop:1, textAlign:"center" }}>{meal.time}</div>
                         </td>
                         {DAYS.map((d, i) => {
                           const pid     = assignments[`${d}-${meal.id}`];
@@ -501,17 +499,23 @@ export default function App() {
         {/* ══ DAG-VY ══ */}
         {tab === "dag" && <>
           <div style={{ display:"flex", gap:4, marginBottom:14 }}>
-            {DAYS.map(d => (
-              <button key={d} onClick={() => setActiveDay(d)} style={{
-                background: activeDay===d ? T.tabActiveBg : T.cardBg,
-                border:`1px solid ${activeDay===d ? T.accent : T.cardBorder}`,
-                color: activeDay===d ? "#fff" : T.textMuted,
-                borderRadius:7, padding:"7px 0", cursor:"pointer",
-                fontSize:12, fontWeight:activeDay===d ? "700":"400",
-                flex:1, minWidth:0, textAlign:"center",
-                transition:"all 0.15s",
-              }}>{d}</button>
-            ))}
+            {DAYS.map((d, i) => {
+              const date = weekDates[i];
+              const isToday = i === todayDayIdx;
+              return (
+                <button key={d} onClick={() => setActiveDay(d)} style={{
+                  background: activeDay===d ? T.tabActiveBg : T.cardBg,
+                  border:`1px solid ${activeDay===d ? T.accent : isToday ? T.accent+"55" : T.cardBorder}`,
+                  color: activeDay===d ? "#fff" : T.textMuted,
+                  borderRadius:7, padding:"6px 0", cursor:"pointer",
+                  flex:1, minWidth:0, textAlign:"center",
+                  transition:"all 0.15s",
+                }}>
+                  <div style={{ fontSize:11, fontWeight: activeDay===d ? "700":"400" }}>{d}</div>
+                  <div style={{ fontSize:10, marginTop:1, color: activeDay===d ? "rgba(255,255,255,0.75)" : isToday ? T.accent : T.textFaint }}>{date.getDate()}</div>
+                </button>
+              );
+            })}
           </div>
 
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -519,48 +523,40 @@ export default function App() {
               const slotKey    = `${activeDay}-${meal.id}`;
               const assignedId = assignments[slotKey];
               const person     = assignedId ? getPerson(assignedId) : null;
-              const doneCount  = mealDoneCount(activeDay, meal.id);
-              const allDone    = horses.length > 0 && doneCount === horses.length;
               const isEditing  = editingSlot === slotKey;
               return (
                 <div key={meal.id} style={{
-                  background: allDone ? T.cardBgDone : T.cardBg,
-                  border:`1px solid ${allDone ? T.cardBorderDone : T.cardBorder}`,
+                  background: T.cardBg, border:`1px solid ${T.cardBorder}`,
                   borderRadius:12, overflow:"hidden",
                   boxShadow: darkMode ? "0 2px 8px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
                 }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", borderBottom:`1px solid ${T.rowBorder}` }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:20 }}>{meal.icon}</span>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:22 }}>{meal.icon}</span>
                       <div>
                         <div style={{ fontSize:15, fontWeight:"700", color:T.text, lineHeight:1.2 }}>{meal.label}</div>
-                        <div style={{ fontSize:12, color:T.textFaint, marginTop:1 }}>{meal.time}</div>
+                        <div style={{ fontSize:12, color:T.accent, fontWeight:"600", marginTop:1 }}>{meal.time}</div>
                       </div>
                     </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:12, fontWeight:"600", padding:"2px 8px", borderRadius:20, background: allDone ? (darkMode?"rgba(74,222,128,0.12)":"rgba(22,163,74,0.1)") : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.05)"), color: allDone ? T.doneText : T.textMuted }}>
-                        {doneCount}/{horses.length}
-                      </span>
-                      <div onClick={() => setEditingSlot(isEditing ? null : slotKey)} style={{
-                        display:"flex", alignItems:"center", gap:7,
-                        background: person ? `${person.color}18` : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)"),
-                        border:`2px solid ${person ? person.color : T.subtleBorder}`,
-                        borderRadius:24, padding:"5px 12px 5px 5px",
-                        cursor:"pointer", userSelect:"none",
-                      }}>
-                        <div style={{ width:28, height:28, borderRadius:"50%", background: person ? person.color : T.subtleBorder, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#fff", fontWeight:"700", flexShrink:0 }}>
-                          {person ? person.name[0] : "?"}
-                        </div>
-                        <span style={{ fontSize:14, fontWeight:"700", color: person ? person.color : T.textMuted }}>
-                          {person ? person.name : "Ingen"}
-                        </span>
-                        <span style={{ fontSize:10, color:T.textFaint, marginLeft:2 }}>▼</span>
+                    <div onClick={() => setEditingSlot(isEditing ? null : slotKey)} style={{
+                      display:"flex", alignItems:"center", gap:7,
+                      background: person ? `${person.color}18` : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)"),
+                      border:`2px solid ${person ? person.color : T.subtleBorder}`,
+                      borderRadius:24, padding:"5px 12px 5px 5px",
+                      cursor:"pointer", userSelect:"none",
+                    }}>
+                      <div style={{ width:28, height:28, borderRadius:"50%", background: person ? person.color : T.subtleBorder, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#fff", fontWeight:"700", flexShrink:0 }}>
+                        {person ? person.name[0] : "?"}
                       </div>
+                      <span style={{ fontSize:14, fontWeight:"700", color: person ? person.color : T.textMuted }}>
+                        {person ? person.name : "Ingen"}
+                      </span>
+                      <span style={{ fontSize:10, color:T.textFaint, marginLeft:2 }}>▼</span>
                     </div>
                   </div>
 
                   {isEditing && (
-                    <div style={{ padding:"10px 14px", display:"flex", flexWrap:"wrap", gap:7, alignItems:"center", background:T.pickerBg, borderBottom:`1px solid ${T.pickerBorder}` }}>
+                    <div style={{ padding:"10px 14px", display:"flex", flexWrap:"wrap", gap:7, alignItems:"center", background:T.pickerBg, borderTop:`1px solid ${T.pickerBorder}` }}>
                       <span style={{ fontSize:10, fontWeight:"600", color:T.textFaint, letterSpacing:"0.1em", width:"100%", marginBottom:2 }}>VÄLJ ANSVARIG</span>
                       {persons.map(p => (
                         <button key={p.id} onClick={() => assignPerson(activeDay, meal.id, p.id)} style={{
@@ -576,23 +572,6 @@ export default function App() {
                       <button onClick={() => assignPerson(activeDay, meal.id, null)} style={{ background:"transparent", border:`1px dashed ${T.cardBorder}`, borderRadius:22, padding:"5px 11px", cursor:"pointer", color:T.textMuted, fontSize:12 }}>✕ Ingen</button>
                     </div>
                   )}
-
-                  <div style={{ padding:"4px 14px 10px" }}>
-                    {horses.map((horse, idx) => {
-                      const isDone = !!done[`${activeDay}-${meal.id}-${horse.id}`];
-                      return (
-                        <div key={horse.id} onClick={() => toggleDone(activeDay, meal.id, horse.id)} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom: idx < horses.length-1 ? `1px solid ${T.rowBorder}` : "none", cursor:"pointer" }}>
-                          <div style={{ width:22, height:22, borderRadius:6, flexShrink:0, background: isDone ? horse.color : T.checkBg, border:`2px solid ${isDone ? horse.color : T.cardBorder}`, display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
-                            {isDone && <span style={{ color:"#fff", fontSize:12, lineHeight:1 }}>✓</span>}
-                          </div>
-                          <div style={{ width:8, height:8, borderRadius:"50%", background:horse.color, flexShrink:0 }} />
-                          <span style={{ fontSize:15, fontWeight:"500", color: isDone ? T.textFaint : T.text, textDecoration: isDone ? "line-through":"none", flex:1 }}>{horse.name}</span>
-                          {horse.note && <span style={{ fontSize:11, color:T.textFaint }}>{horse.note}</span>}
-                        </div>
-                      );
-                    })}
-                    {horses.length === 0 && <p style={{ fontSize:13, color:T.textFaint, margin:"10px 0", fontStyle:"italic" }}>Inga hästar tillagda</p>}
-                  </div>
                 </div>
               );
             })}
