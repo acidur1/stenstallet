@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import AuthScreen from "./AuthScreen";
 
@@ -135,7 +135,11 @@ export default function App() {
   const [persons, setPersons]                 = useState([]);
   const [horses, setHorses]                   = useState([]);
   const [assignments, setAssignments]         = useState({});
+  const [done, setDone]                       = useState({});
   const [loading, setLoading]                 = useState(true);
+  const [history, setHistory]                 = useState(null);
+  const [historyLoading, setHistoryLoading]   = useState(false);
+  const [expandedWeeks, setExpandedWeeks]     = useState(new Set());
   const [activeDay, setActiveDay]             = useState("Mån");
   const [tab, setTab]                         = useState("vecka");
   const [weekOffset, setWeekOffset]           = useState(0);
@@ -181,13 +185,18 @@ export default function App() {
     return () => unsubs.forEach(u => u());
   }, []);
 
-  // ── Firebase: assignments per vecka ──────────────────────────────────────
+  // ── Firebase: assignments + done per vecka ───────────────────────────────
   useEffect(() => {
     const weekKey = getWeekKey(weekOffset);
-    const unsub = onSnapshot(doc(db, "config", `assignments_${weekKey}`), snap => {
-      setAssignments(snap.exists() ? (snap.data().map || {}) : {});
-    });
-    return () => unsub();
+    const unsubs = [
+      onSnapshot(doc(db, "config", `assignments_${weekKey}`), snap => {
+        setAssignments(snap.exists() ? (snap.data().map || {}) : {});
+      }),
+      onSnapshot(doc(db, "schedule", `done_${weekKey}`), snap => {
+        setDone(snap.exists() ? (snap.data().map || {}) : {});
+      }),
+    ];
+    return () => unsubs.forEach(u => u());
   }, [weekOffset]);
 
   // Visa identitetsval när appen laddats och ingen identitet är vald
@@ -267,6 +276,40 @@ export default function App() {
     const list = persons.map(p => p.id === id ? { ...p, name: editPersonName.trim(), color: editPersonColor } : p);
     setPersons(list); saveDoc("config/persons", { list }); setEditingPersonId(null);
   };
+  const toggleDone = (day, mealId, horseId) => {
+    const k = `${day}-${mealId}-${horseId}`;
+    const map = { ...done, [k]: !done[k] };
+    setDone(map);
+    saveDoc(`schedule/done_${getWeekKey(weekOffset)}`, { map });
+  };
+  const mealDoneCount = (day, mealId) =>
+    horses.filter(h => done[`${day}-${mealId}-${h.id}`]).length;
+
+  const loadHistory = async () => {
+    if (history !== null || historyLoading) return;
+    setHistoryLoading(true);
+    const weeks = [];
+    for (let offset = -1; offset >= -8; offset--) {
+      const weekKey = getWeekKey(offset);
+      const dates = getWeekDates(offset);
+      const [assignSnap, doneSnap] = await Promise.all([
+        getDoc(doc(db, "config", `assignments_${weekKey}`)),
+        getDoc(doc(db, "schedule", `done_${weekKey}`)),
+      ]);
+      weeks.push({
+        weekKey,
+        weekNum: getISOWeek(dates[0]),
+        dates,
+        assignments: assignSnap.exists() ? (assignSnap.data().map || {}) : {},
+        done: doneSnap.exists() ? (doneSnap.data().map || {}) : {},
+        hasDoneData: doneSnap.exists(),
+      });
+    }
+    setHistory(weeks);
+    setExpandedWeeks(new Set([weeks[0].weekKey]));
+    setHistoryLoading(false);
+  };
+
   const copyToNextWeek = async () => {
     const nextWeekKey = getWeekKey(weekOffset + 1);
     await saveDoc(`config/assignments_${nextWeekKey}`, { map: { ...assignments } });
@@ -371,8 +414,8 @@ export default function App() {
               <span style={{ maxWidth:100, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontSize:11 }}>{user.email}</span>
               <span style={{ fontSize:11 }}>↩</span>
             </button>
-            {[["vecka","📅 Vecka"],["personer","👤 Personal"]].map(([t, label]) => (
-              <button key={t} onClick={() => setTab(t)} style={{
+            {[["vecka","📅 Vecka"],["historik","📋 Historik"],["personer","👤 Personal"]].map(([t, label]) => (
+              <button key={t} onClick={() => { setTab(t); if (t === "historik") loadHistory(); }} style={{
                 background: tab===t ? T.tabActiveBg : "transparent",
                 border:`1px solid ${tab===t ? T.accent : T.tabBorder}`,
                 borderRadius:8, padding:"6px 10px", cursor:"pointer",
@@ -553,9 +596,12 @@ export default function App() {
               const assignedId = assignments[slotKey];
               const person     = assignedId ? getPerson(assignedId) : null;
               const isEditing  = editingSlot === slotKey;
+              const doneCount  = mealDoneCount(activeDay, meal.id);
+              const allDone    = horses.length > 0 && doneCount === horses.length;
               return (
                 <div key={meal.id} style={{
-                  background: T.cardBg, border:`1px solid ${T.cardBorder}`,
+                  background: allDone ? T.cardBgDone : T.cardBg,
+                  border:`1px solid ${allDone ? T.cardBorderDone : T.cardBorder}`,
                   borderRadius:12, overflow:"hidden",
                   boxShadow: darkMode ? "0 2px 8px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
                 }}>
@@ -567,6 +613,14 @@ export default function App() {
                         <div style={{ fontSize:12, color:T.accent, fontWeight:"600", marginTop:1 }}>{meal.time}</div>
                       </div>
                     </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      {horses.length > 0 && (
+                        <span style={{
+                          fontSize:12, fontWeight:"600", padding:"2px 8px", borderRadius:20,
+                          background: allDone ? (darkMode?"rgba(74,222,128,0.12)":"rgba(22,163,74,0.1)") : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.05)"),
+                          color: allDone ? T.doneText : T.textMuted,
+                        }}>{doneCount}/{horses.length}</span>
+                      )}
                     <div onClick={() => setEditingSlot(isEditing ? null : slotKey)} style={{
                       display:"flex", alignItems:"center", gap:7,
                       background: person ? `${person.color}18` : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)"),
@@ -581,6 +635,7 @@ export default function App() {
                         {person ? person.name : "Ingen"}
                       </span>
                       <span style={{ fontSize:10, color:T.textFaint, marginLeft:2 }}>▼</span>
+                    </div>
                     </div>
                   </div>
 
@@ -601,11 +656,159 @@ export default function App() {
                       <button onClick={() => assignPerson(activeDay, meal.id, null)} style={{ background:"transparent", border:`1px dashed ${T.cardBorder}`, borderRadius:22, padding:"5px 11px", cursor:"pointer", color:T.textMuted, fontSize:12 }}>✕ Ingen</button>
                     </div>
                   )}
+
+                  {/* Horse checklist */}
+                  {horses.length > 0 && (
+                    <div style={{ padding:"4px 14px 10px" }}>
+                      {horses.map((horse, idx) => {
+                        const isDone = !!done[`${activeDay}-${meal.id}-${horse.id}`];
+                        return (
+                          <div key={horse.id} onClick={() => toggleDone(activeDay, meal.id, horse.id)} style={{
+                            display:"flex", alignItems:"center", gap:12,
+                            padding:"10px 0",
+                            borderBottom: idx < horses.length - 1 ? `1px solid ${T.rowBorder}` : "none",
+                            cursor:"pointer",
+                          }}>
+                            <div style={{
+                              width:22, height:22, borderRadius:6, flexShrink:0,
+                              background: isDone ? horse.color : T.checkBg,
+                              border:`2px solid ${isDone ? horse.color : T.cardBorder}`,
+                              display:"flex", alignItems:"center", justifyContent:"center",
+                              transition:"all 0.15s",
+                            }}>
+                              {isDone && <span style={{ color:"#fff", fontSize:12, lineHeight:1 }}>✓</span>}
+                            </div>
+                            <div style={{ width:8, height:8, borderRadius:"50%", background:horse.color, flexShrink:0 }} />
+                            <span style={{
+                              fontSize:15, fontWeight:"500", flex:1,
+                              color: isDone ? T.textFaint : T.text,
+                              textDecoration: isDone ? "line-through" : "none",
+                            }}>{horse.name}</span>
+                            {horse.note && <span style={{ fontSize:11, color:T.textFaint }}>{horse.note}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </>}
+
+        {/* ══ HISTORIK-VY ══ */}
+        {tab === "historik" && (
+          <div>
+            {historyLoading && (
+              <div style={{ textAlign:"center", padding:"40px 0", color:T.textMuted, fontSize:14 }}>
+                Laddar historik…
+              </div>
+            )}
+            {!historyLoading && history && history.length === 0 && (
+              <p style={{ textAlign:"center", color:T.textFaint, fontSize:14, fontStyle:"italic", marginTop:40 }}>
+                Ingen historik att visa ännu.
+              </p>
+            )}
+            {!historyLoading && history && history.map(week => {
+              const isExpanded = expandedWeeks.has(week.weekKey);
+              const toggleExpand = () => setExpandedWeeks(prev => {
+                const next = new Set(prev);
+                if (next.has(week.weekKey)) next.delete(week.weekKey);
+                else next.add(week.weekKey);
+                return next;
+              });
+              const totalSlots = DAYS.length * MEALS.length * horses.length;
+              const doneCount = totalSlots > 0 ? Object.values(week.done).filter(Boolean).length : 0;
+              return (
+                <div key={week.weekKey} style={{ marginBottom:10 }}>
+                  <button onClick={toggleExpand} style={{
+                    width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                    background:T.cardBg, border:`1px solid ${T.cardBorder}`,
+                    borderRadius: isExpanded ? "12px 12px 0 0" : 12,
+                    padding:"13px 16px", cursor:"pointer", textAlign:"left",
+                  }}>
+                    <div>
+                      <span style={{ fontSize:14, fontWeight:"700", color:T.text }}>Vecka {week.weekNum}</span>
+                      <span style={{ fontSize:12, color:T.textMuted, marginLeft:10 }}>
+                        {fmtDate(week.dates[0])} – {fmtDate(week.dates[6])} {week.dates[6].getFullYear()}
+                      </span>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      {week.hasDoneData && horses.length > 0 && (
+                        <span style={{
+                          fontSize:12, fontWeight:"600", padding:"2px 8px", borderRadius:20,
+                          background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                          color: T.textMuted,
+                        }}>{doneCount}/{DAYS.length * MEALS.length * horses.length}</span>
+                      )}
+                      <span style={{ fontSize:14, color:T.textFaint }}>{isExpanded ? "▾" : "▸"}</span>
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div style={{ border:`1px solid ${T.cardBorder}`, borderTop:"none", borderRadius:"0 0 12px 12px", overflow:"hidden" }}>
+                      {DAYS.map((day, dayIdx) => {
+                        const date = week.dates[dayIdx];
+                        const hasActivity = MEALS.some(m =>
+                          week.assignments[`${day}-${m.id}`] ||
+                          horses.some(h => week.done[`${day}-${m.id}-${h.id}`])
+                        );
+                        return (
+                          <div key={day} style={{ borderBottom:`1px solid ${T.rowBorder}` }}>
+                            <div style={{ padding:"8px 14px 4px", background: darkMode?"rgba(255,255,255,0.02)":"rgba(0,0,0,0.02)" }}>
+                              <span style={{ fontSize:11, fontWeight:"700", color: hasActivity ? T.accent : T.textFaint, letterSpacing:"0.06em" }}>
+                                {DAYS_FULL[dayIdx].toUpperCase()} {date.getDate()} {SV_MONTHS[date.getMonth()].toUpperCase()}
+                              </span>
+                            </div>
+                            {MEALS.map((meal, mealIdx) => {
+                              const pid = week.assignments[`${day}-${meal.id}`];
+                              const person = pid ? persons.find(p => p.id === pid) : null;
+                              const isLast = mealIdx === MEALS.length - 1;
+                              return (
+                                <div key={meal.id} style={{
+                                  display:"flex", alignItems:"center", gap:10, padding:"9px 14px",
+                                  borderBottom: !isLast ? `1px solid ${T.rowBorder}` : "none",
+                                }}>
+                                  <span style={{ fontSize:16, width:22, textAlign:"center", flexShrink:0 }}>{meal.icon}</span>
+                                  <div style={{ width:38, flexShrink:0 }}>
+                                    <div style={{ fontSize:10, fontWeight:"600", color:T.textMuted }}>{meal.label}</div>
+                                    <div style={{ fontSize:9, color:T.textFaint }}>{meal.time}</div>
+                                  </div>
+                                  {person ? (
+                                    <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+                                      <div style={{ width:20, height:20, borderRadius:"50%", background:person.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, color:"#fff", fontWeight:"700" }}>{person.name[0]}</div>
+                                      <span style={{ fontSize:12, color:T.textMuted, fontWeight:"500" }}>{person.name}</span>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize:12, color:T.textFaint, flexShrink:0 }}>—</span>
+                                  )}
+                                  <div style={{ display:"flex", gap:4, flexWrap:"wrap", flex:1, justifyContent:"flex-end" }}>
+                                    {horses.map(horse => {
+                                      const fed = week.done[`${day}-${meal.id}-${horse.id}`];
+                                      const hasData = week.hasDoneData;
+                                      return (
+                                        <div key={horse.id} title={horse.name} style={{
+                                          width:10, height:10, borderRadius:"50%", flexShrink:0,
+                                          background: !hasData ? T.textFaint : fed ? horse.color : (darkMode?"rgba(239,68,68,0.4)":"rgba(239,68,68,0.3)"),
+                                          border: !hasData ? `1px solid ${T.textFaint}` : fed ? "none" : `1px solid ${darkMode?"#7f1d1d":"#fca5a5"}`,
+                                          opacity: !hasData ? 0.35 : 1,
+                                        }} />
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ══ PERSONAL-VY ══ */}
         {tab === "personer" && (
