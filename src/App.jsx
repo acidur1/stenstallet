@@ -19,6 +19,15 @@ const saveDoc = async (path, data) => {
   catch (e) { console.error("Firebase write error:", e); }
 };
 
+const VAPID_PUBLIC_KEY = "BNcRyxOvZ2UYo10fOVBuZ4N1sdWLCL_5X7eU6r_W0vZ2uBGaOMrXOrvB5-mjKwnrPb_WY-AnVOOiVvB7YdFSlZo";
+
+function urlBase64ToUint8Array(b64) {
+  const padding = "=".repeat((4 - b64.length % 4) % 4);
+  const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DAYS       = ["Mån","Tis","Ons","Tor","Fre","Lör","Sön"];
 const DAYS_SHORT = ["M","T","O","T","F","L","S"];
@@ -137,6 +146,11 @@ export default function App() {
   const [editingHorseId, setEditingHorseId]   = useState(null);
   const [editHorseName, setEditHorseName]     = useState("");
   const [editHorseNote, setEditHorseNote]     = useState("");
+  const [myPersonId, setMyPersonId]           = useState(() => {
+    const s = localStorage.getItem("stenPersonId");
+    return s ? Number(s) : null;
+  });
+  const [showIdentity, setShowIdentity]       = useState(false);
 
   const T = darkMode ? THEMES.dark : THEMES.light;
 
@@ -167,6 +181,39 @@ export default function App() {
     ];
     return () => unsubs.forEach(u => u());
   }, [weekOffset]);
+
+  // Visa identitetsval när appen laddats och ingen identitet är vald
+  useEffect(() => {
+    if (!loading && !myPersonId) setShowIdentity(true);
+  }, [loading]);
+
+  // ── Push-notiser ──────────────────────────────────────────────────────────
+  const registerPush = async (personId) => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      let deviceId = localStorage.getItem("stenDeviceId");
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem("stenDeviceId", deviceId);
+      }
+      await saveDoc(`push_subscriptions/${deviceId}`, { personId, subscription: JSON.stringify(sub) });
+    } catch (err) {
+      console.error("Push-registrering misslyckades:", err);
+    }
+  };
+
+  const selectIdentity = async (personId) => {
+    localStorage.setItem("stenPersonId", String(personId));
+    setMyPersonId(personId);
+    setShowIdentity(false);
+    await registerPush(personId);
+  };
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const getPerson    = (id) => persons.find(p => p.id === id);
@@ -253,6 +300,30 @@ export default function App() {
 
   return (
     <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color:T.text, transition:"background 0.25s, color 0.25s" }}>
+
+      {/* ── Identitetsval-overlay ── */}
+      {showIdentity && (
+        <div style={{ position:"fixed", inset:0, zIndex:200, background: darkMode ? "rgba(10,12,20,0.97)" : "rgba(244,246,251,0.97)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <span style={{ fontSize:40, marginBottom:16 }}>🐴</span>
+          <h2 style={{ margin:"0 0 6px", fontSize:22, fontWeight:"800", color:T.text }}>Vem är du?</h2>
+          <p style={{ margin:"0 0 24px", fontSize:14, color:T.textMuted, textAlign:"center" }}>Välj ditt namn för att få påminnelser om dina fodringspass.</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:10, width:"100%", maxWidth:320 }}>
+            {persons.map(p => (
+              <button key={p.id} onClick={() => selectIdentity(p.id)} style={{
+                display:"flex", alignItems:"center", gap:14, padding:"14px 18px",
+                background: T.cardBg, border:`2px solid ${p.color}55`, borderRadius:14,
+                cursor:"pointer", textAlign:"left",
+              }}>
+                <div style={{ width:38, height:38, borderRadius:"50%", background:p.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, color:"#fff", fontWeight:"800", flexShrink:0 }}>{p.name[0]}</div>
+                <span style={{ fontSize:17, fontWeight:"600", color:T.text }}>{p.name}</span>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => { localStorage.setItem("stenPersonId", "none"); setMyPersonId("none"); setShowIdentity(false); }} style={{ marginTop:20, background:"transparent", border:"none", color:T.textFaint, fontSize:13, cursor:"pointer", textDecoration:"underline" }}>
+            Fortsätt utan notiser
+          </button>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <header style={{
@@ -534,7 +605,14 @@ export default function App() {
 
             {/* Personal */}
             <div>
-              <h2 style={{ fontSize:14, fontWeight:"700", color:T.text, marginBottom:12 }}>👤 Personal</h2>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                <h2 style={{ fontSize:14, fontWeight:"700", color:T.text, margin:0 }}>👤 Personal</h2>
+                {myPersonId && (() => { const me = persons.find(p => p.id === myPersonId); return me ? (
+                  <button onClick={() => setShowIdentity(true)} style={{ display:"flex", alignItems:"center", gap:6, background:T.editBtn.bg, border:`1px solid ${T.editBtn.border}`, borderRadius:20, padding:"4px 10px 4px 6px", cursor:"pointer" }}>
+                    <div style={{ width:18, height:18, borderRadius:"50%", background:me.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:"700" }}>{me.name[0]}</div>
+                    <span style={{ fontSize:11, color:T.editBtn.color, fontWeight:"600" }}>Byt identitet</span>
+                  </button>
+                ) : null; })()}</div>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {persons.map(p => {
                   const mySlots = Object.values(assignments).filter(pid => pid === p.id).length;
