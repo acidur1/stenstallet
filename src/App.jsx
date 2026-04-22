@@ -136,6 +136,7 @@ export default function App() {
   const [horses, setHorses]                   = useState([]);
   const [assignments, setAssignments]         = useState({});
   const [done, setDone]                       = useState({});
+  const [swapMap, setSwapMap]                 = useState({});
   const [loading, setLoading]                 = useState(true);
   const [history, setHistory]                 = useState(null);
   const [historyLoading, setHistoryLoading]   = useState(false);
@@ -194,6 +195,9 @@ export default function App() {
       }),
       onSnapshot(doc(db, "schedule", `done_${weekKey}`), snap => {
         setDone(snap.exists() ? (snap.data().map || {}) : {});
+      }),
+      onSnapshot(doc(db, "schedule", `swaps_${weekKey}`), snap => {
+        setSwapMap(snap.exists() ? (snap.data().map || {}) : {});
       }),
     ];
     return () => unsubs.forEach(u => u());
@@ -284,6 +288,34 @@ export default function App() {
   };
   const mealDoneCount = (day, mealId) =>
     horses.filter(h => done[`${day}-${mealId}-${h.id}`]).length;
+
+  const saveSwaps = (map) => saveDoc(`schedule/swaps_${getWeekKey(weekOffset)}`, { map });
+
+  const requestSwap = (day, mealId) => {
+    const map = { ...swapMap, [`${day}-${mealId}`]: { fromPersonId: myPersonId, requestedAt: Date.now() } };
+    setSwapMap(map);
+    saveSwaps(map);
+  };
+  const cancelSwap = (day, mealId) => {
+    const map = { ...swapMap };
+    delete map[`${day}-${mealId}`];
+    setSwapMap(map);
+    saveSwaps(map);
+  };
+  const acceptSwap = (day, mealId) => {
+    const slotKey = `${day}-${mealId}`;
+    const newAssignments = { ...assignments, [slotKey]: myPersonId };
+    setAssignments(newAssignments);
+    saveDoc(`config/assignments_${getWeekKey(weekOffset)}`, { map: newAssignments });
+    const map = { ...swapMap };
+    delete map[slotKey];
+    setSwapMap(map);
+    saveSwaps(map);
+  };
+
+  const pendingSwapsForOthers = Object.entries(swapMap).filter(
+    ([, req]) => req.fromPersonId !== myPersonId
+  );
 
   const loadHistory = async () => {
     if (history !== null || historyLoading) return;
@@ -463,6 +495,51 @@ export default function App() {
                 }}>
                   📋 Kopiera till nästa vecka
                 </button>
+              </div>
+            )}
+
+            {/* Bytesförfrågningar */}
+            {pendingSwapsForOthers.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:"700", color:"#f59e0b", letterSpacing:"0.08em", marginBottom:8 }}>
+                  🔄 BYTESFÖRFRÅGNINGAR
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {pendingSwapsForOthers.map(([slotKey, req]) => {
+                    const parts  = slotKey.split("-");
+                    const day    = parts[0];
+                    const mealId = parts[1];
+                    const meal   = MEALS.find(m => m.id === mealId);
+                    const from   = getPerson(req.fromPersonId);
+                    if (!meal || !from) return null;
+                    return (
+                      <div key={slotKey} style={{
+                        background: darkMode ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.06)",
+                        border: `1px solid ${darkMode ? "rgba(245,158,11,0.3)" : "rgba(245,158,11,0.4)"}`,
+                        borderRadius:12, padding:"12px 14px",
+                        display:"flex", alignItems:"center", gap:12,
+                      }}>
+                        <span style={{ fontSize:20, flexShrink:0 }}>{meal.icon}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:"700", color:T.text }}>
+                            {day} · {meal.label}
+                          </div>
+                          <div style={{ fontSize:12, color:T.textMuted, marginTop:2 }}>
+                            <span style={{ display:"inline-block", width:16, height:16, borderRadius:"50%", background:from.color, color:"#fff", fontSize:9, fontWeight:"700", textAlign:"center", lineHeight:"16px", marginRight:5, verticalAlign:"middle" }}>{from.name[0]}</span>
+                            {from.name} vill byta detta pass
+                          </div>
+                        </div>
+                        {myPersonId && myPersonId !== "none" && (
+                          <button onClick={() => acceptSwap(day, mealId)} style={{
+                            padding:"8px 14px", borderRadius:8, cursor:"pointer", flexShrink:0,
+                            background:"#f59e0b", border:"none", color:"#1a1200",
+                            fontSize:13, fontWeight:"700",
+                          }}>Ta över</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -690,6 +767,62 @@ export default function App() {
                       })}
                     </div>
                   )}
+
+                  {/* Swap footer */}
+                  {(() => {
+                    const swap = swapMap[slotKey];
+                    const isMySlot = myPersonId && myPersonId !== "none" && assignedId === myPersonId;
+                    const isPendingByMe = isMySlot && !!swap;
+                    const isPendingByOther = !isMySlot && !!swap && swap.fromPersonId !== myPersonId;
+                    const from = swap ? getPerson(swap.fromPersonId) : null;
+
+                    if (isPendingByMe) return (
+                      <div style={{
+                        display:"flex", alignItems:"center", justifyContent:"space-between",
+                        padding:"10px 14px", borderTop:`1px solid ${T.rowBorder}`,
+                        background: darkMode ? "rgba(245,158,11,0.06)" : "rgba(245,158,11,0.04)",
+                      }}>
+                        <span style={{ fontSize:13, color:"#f59e0b", fontWeight:"600" }}>🔄 Bytesförfrågan skickad</span>
+                        <button onClick={() => cancelSwap(activeDay, meal.id)} style={{
+                          padding:"5px 10px", borderRadius:7, cursor:"pointer", fontSize:12,
+                          background:"transparent", border:`1px solid ${T.cardBorder}`, color:T.textMuted,
+                        }}>Avbryt</button>
+                      </div>
+                    );
+
+                    if (isPendingByOther && from) return (
+                      <div style={{
+                        display:"flex", alignItems:"center", justifyContent:"space-between",
+                        padding:"10px 14px", borderTop:`1px solid ${T.rowBorder}`,
+                        background: darkMode ? "rgba(245,158,11,0.06)" : "rgba(245,158,11,0.04)",
+                      }}>
+                        <span style={{ fontSize:13, color:T.textMuted }}>
+                          <span style={{ display:"inline-block", width:16, height:16, borderRadius:"50%", background:from.color, color:"#fff", fontSize:9, fontWeight:"700", textAlign:"center", lineHeight:"16px", marginRight:5, verticalAlign:"middle" }}>{from.name[0]}</span>
+                          {from.name} vill byta
+                        </span>
+                        {myPersonId && myPersonId !== "none" && (
+                          <button onClick={() => acceptSwap(activeDay, meal.id)} style={{
+                            padding:"5px 12px", borderRadius:7, cursor:"pointer", fontSize:12,
+                            background:"#f59e0b", border:"none", color:"#1a1200", fontWeight:"700",
+                          }}>Ta över</button>
+                        )}
+                      </div>
+                    );
+
+                    if (isMySlot && !swap) return (
+                      <div style={{ padding:"8px 14px", borderTop:`1px solid ${T.rowBorder}` }}>
+                        <button onClick={() => requestSwap(activeDay, meal.id)} style={{
+                          padding:"6px 12px", borderRadius:7, cursor:"pointer", fontSize:12, fontWeight:"500",
+                          background:"transparent", border:`1px dashed ${T.cardBorder}`, color:T.textMuted,
+                          display:"flex", alignItems:"center", gap:6,
+                        }}>
+                          <span>🔄</span> Byt pass
+                        </button>
+                      </div>
+                    );
+
+                    return null;
+                  })()}
                 </div>
               );
             })}
