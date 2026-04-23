@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { HORSE_COLORS } from "../constants";
 
-export default function HorseManager({ T, horses, onAdd, onRemove, onSave }) {
+export default function HorseManager({ T, horses, persons, onAdd, onRemove, onSave }) {
   const [editingId, setEditingId]   = useState(null);
   const [editName, setEditName]     = useState("");
   const [editNote, setEditNote]     = useState("");
+  const [editOwner, setEditOwner]   = useState(null);
   const [showAdd, setShowAdd]       = useState(false);
   const [newName, setNewName]       = useState("");
   const [newNote, setNewNote]       = useState("");
+  const [newOwner, setNewOwner]     = useState(null);
 
-  const startEdit = (h) => { setEditingId(h.id); setEditName(h.name); setEditNote(h.note || ""); };
-  const saveEdit  = (id) => { if (!editName.trim()) return; onSave(id, editName.trim(), editNote.trim()); setEditingId(null); };
-  const handleAdd = () => { if (!newName.trim()) return; onAdd(newName.trim(), newNote.trim()); setNewName(""); setNewNote(""); setShowAdd(false); };
+  const startEdit = (h) => { setEditingId(h.id); setEditName(h.name); setEditNote(h.note || ""); setEditOwner(h.ownerPersonId || null); };
+  const saveEdit  = (id) => { if (!editName.trim()) return; onSave(id, editName.trim(), editNote.trim(), editOwner); setEditingId(null); };
+  const handleAdd = () => { if (!newName.trim()) return; onAdd(newName.trim(), newNote.trim(), newOwner); setNewName(""); setNewNote(""); setNewOwner(null); setShowAdd(false); };
 
   const inputStyle = {
     background: T.inputBg, border: `1px solid ${T.inputBorder}`,
@@ -21,12 +23,38 @@ export default function HorseManager({ T, horses, onAdd, onRemove, onSave }) {
   const formBox  = { background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 10, padding: 14 };
   const btnSmall = (extra = {}) => ({ padding:"5px 10px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:"500", ...extra });
 
+  const PersonPicker = ({ selectedId, onChange }) => (
+    <div>
+      <p style={{ margin:"0 0 6px", fontSize:11, color:T.textMuted, fontWeight:"600" }}>Ägare</p>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+        {persons.map(p => {
+          const selected = p.id === selectedId;
+          return (
+            <button key={p.id} onClick={() => onChange(selected ? null : p.id)} style={{
+              display:"flex", alignItems:"center", gap:5, padding:"4px 10px 4px 6px",
+              borderRadius:20, cursor:"pointer",
+              background: selected ? `${p.color}33` : T.inputBg,
+              border: selected ? `2px solid ${p.color}` : `2px solid ${T.inputBorder}`,
+              color: selected ? p.color : T.textMuted,
+              fontWeight: selected ? "700" : "400", fontSize:12, transition:"all 0.1s",
+            }}>
+              <div style={{ width:16, height:16, borderRadius:"50%", background:p.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:"700", flexShrink:0 }}>{p.name[0]}</div>
+              {p.name}
+            </button>
+          );
+        })}
+        {persons.length === 0 && <span style={{ fontSize:12, color:T.textMuted }}>Inga personer tillagda</span>}
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <h2 style={{ fontSize:14, fontWeight:"700", color:T.text, marginBottom:12 }}>🐎 Hästar</h2>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {horses.map(h => {
           const isEditing = editingId === h.id;
+          const owner = persons.find(p => p.id === h.ownerPersonId);
           return (
             <div key={h.id} style={{ background:T.cardBg, border:`1px solid ${T.cardBorder}`, borderLeft:`4px solid ${h.color}`, borderRadius:10, overflow:"hidden" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 14px" }}>
@@ -35,6 +63,12 @@ export default function HorseManager({ T, horses, onAdd, onRemove, onSave }) {
                   <div>
                     <span style={{ fontSize:14, fontWeight:"600", color:T.text }}>{h.name}</span>
                     {h.note && <div style={{ fontSize:11, color:T.textMuted, marginTop:1 }}>{h.note}</div>}
+                    {owner && (
+                      <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
+                        <div style={{ width:12, height:12, borderRadius:"50%", background:owner.color, flexShrink:0 }} />
+                        <span style={{ fontSize:11, color:owner.color, fontWeight:"600" }}>{owner.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:6 }}>
@@ -47,7 +81,8 @@ export default function HorseManager({ T, horses, onAdd, onRemove, onSave }) {
               {isEditing && (
                 <div style={{ padding:"0 14px 14px", borderTop:`1px solid ${T.rowBorder}`, paddingTop:12 }}>
                   <input value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key==="Enter" && saveEdit(h.id)} autoFocus placeholder="Namn *" style={{ ...inputStyle, marginBottom:8 }} />
-                  <input value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Anteckning (valfri)" style={{ ...inputStyle, marginBottom:8 }} />
+                  <input value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="Anteckning (valfri)" style={{ ...inputStyle, marginBottom:12 }} />
+                  <PersonPicker selectedId={editOwner} onChange={setEditOwner} />
                   <button onClick={() => saveEdit(h.id)} style={{ padding:"8px 16px", borderRadius:7, cursor:"pointer", background:T.tabActiveBg, border:"none", color:"#fff", fontSize:14, fontWeight:"600" }}>Spara</button>
                 </div>
               )}
@@ -60,7 +95,8 @@ export default function HorseManager({ T, horses, onAdd, onRemove, onSave }) {
           : <div style={formBox}>
               <p style={{ margin:"0 0 10px", fontSize:13, fontWeight:"600", color:T.textMuted }}>Ny häst</p>
               <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Namn *" autoFocus style={{ ...inputStyle, marginBottom:8 }} />
-              <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Anteckning (valfri)" style={{ ...inputStyle, marginBottom:10 }} />
+              <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Anteckning (valfri)" style={{ ...inputStyle, marginBottom:12 }} />
+              <PersonPicker selectedId={newOwner} onChange={setNewOwner} />
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={handleAdd} style={{ flex:1, padding:"9px", borderRadius:7, cursor:"pointer", background:T.tabActiveBg, border:"none", color:"#fff", fontSize:14, fontWeight:"600" }}>Lägg till</button>
                 <button onClick={() => setShowAdd(false)} style={{ padding:"9px 14px", borderRadius:7, cursor:"pointer", background:"transparent", border:`1px solid ${T.cardBorder}`, color:T.textMuted, fontSize:14 }}>Avbryt</button>

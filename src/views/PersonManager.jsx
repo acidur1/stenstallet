@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PERSON_COLORS } from "../constants";
 
-export default function PersonManager({ T, persons, assignments, myPersonId, user, onShowIdentity, onAdd, onRemove, onSave }) {
+export default function PersonManager({ T, persons, horses, assignments, myPersonId, user, onShowIdentity, onAdd, onRemove, onSave }) {
   const [editingId, setEditingId]     = useState(null);
   const [editName, setEditName]       = useState("");
   const [editColor, setEditColor]     = useState("");
@@ -37,6 +37,7 @@ export default function PersonManager({ T, persons, assignments, myPersonId, use
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {persons.map(p => {
           const mySlots   = Object.values(assignments).filter(pid => pid === p.id).length;
+          const myHorses  = horses.filter(h => h.ownerPersonId === p.id);
           const isEditing = editingId === p.id;
           return (
             <div key={p.id} style={{ background:T.cardBg, border:`1px solid ${T.cardBorder}`, borderLeft:`4px solid ${p.color}`, borderRadius:10, overflow:"hidden" }}>
@@ -57,6 +58,16 @@ export default function PersonManager({ T, persons, assignments, myPersonId, use
                       )}
                     </div>
                     <div style={{ fontSize:11, color:T.textMuted }}>{mySlots} pass denna vecka</div>
+                    {myHorses.length > 0 && (
+                      <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3, flexWrap:"wrap" }}>
+                        {myHorses.map(h => (
+                          <span key={h.id} style={{ display:"flex", alignItems:"center", gap:3, fontSize:11, color:T.textMuted }}>
+                            <div style={{ width:8, height:8, borderRadius:"50%", background:h.color, flexShrink:0 }} />
+                            {h.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:6 }}>
