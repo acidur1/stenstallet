@@ -97,7 +97,8 @@ export default function WeekView({
                   border:`1.5px solid ${p ? p.color+"66" : T.cardBorder}`,
                 }}>
                   <div style={{ fontSize:16, lineHeight:1 }}>{meal.icon}</div>
-                  <div style={{ fontSize:9, color:T.accent, fontWeight:"600", marginTop:2 }}>{meal.time}</div>
+                  <div style={{ fontSize:9, fontWeight:"700", color:T.textMuted, marginTop:2, lineHeight:1 }}>{meal.label}</div>
+                  <div style={{ fontSize:9, color:T.accent, fontWeight:"600", marginTop:1 }}>{meal.time}</div>
                   <div style={{ width:26, height:26, borderRadius:"50%", background: p ? p.color : T.subtleBorder, margin:"6px auto 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:"700" }}>
                     {p ? p.name[0] : "?"}
                   </div>
