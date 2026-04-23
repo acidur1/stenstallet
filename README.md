@@ -1,16 +1,39 @@
-# React + Vite
+# Stenstallet
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Fodringsschema-app för stallet. Håller koll på vem som ansvarar för morgon, lunch, middag och kväll — varje dag, varje vecka.
 
-Currently, two official plugins are available:
+## Funktioner
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Veckoschema med personliga fodringspass
+- Dagvy med möjlighet att byta ansvarig
+- Bytesförfrågningar — be någon ta över ditt pass
+- Historik över tidigare veckor
+- Push-notiser när det är dags att fodra
+- Mörkt/ljust tema
+- PWA — kan installeras på hemskärmen
 
-## React Compiler
+## Tech
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + Vite
+- Firebase Firestore (realtidsdata) + Auth (e-post/lösenord)
+- Firebase Cloud Functions (schemalagda push-notiser)
+- Netlify (hosting)
 
-## Expanding the ESLint configuration
+## Lokal utveckling
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
+
+## Deploy
+
+```bash
+npm run build
+netlify deploy --prod --dir=dist
+```
+
+Firebase Functions:
+```bash
+firebase deploy --only functions
+```
