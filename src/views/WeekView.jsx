@@ -37,19 +37,6 @@ export default function WeekView({
         }}>›</button>
       </div>
 
-      {/* Copy to next week */}
-      {weekOffset === 0 && Object.keys(assignments).length > 0 && (
-        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
-          <button onClick={copyToNextWeek} style={{
-            display:"flex", alignItems:"center", gap:6, padding:"7px 12px",
-            background:T.cardBg, border:`1px solid ${T.cardBorder}`,
-            borderRadius:8, cursor:"pointer", color:T.textMuted, fontSize:12, fontWeight:"500",
-          }}>
-            📋 Kopiera till nästa vecka
-          </button>
-        </div>
-      )}
-
       {/* Swap notifications */}
       {pendingSwapsForOthers.length > 0 && (
         <div style={{ marginBottom:14 }}>
@@ -192,6 +179,18 @@ export default function WeekView({
         </table>
       </div>
       <p style={{ fontSize:11, color:T.textFaint, marginTop:12, fontStyle:"italic" }}>Tryck på en cell för att öppna dagen.</p>
+
+      {weekOffset === 0 && Object.keys(assignments).length > 0 && (
+        <div style={{ display:"flex", justifyContent:"center", marginTop:16 }}>
+          <button onClick={copyToNextWeek} style={{
+            display:"flex", alignItems:"center", gap:6, padding:"10px 18px",
+            background:T.cardBg, border:`1px solid ${T.cardBorder}`,
+            borderRadius:10, cursor:"pointer", color:T.textMuted, fontSize:13, fontWeight:"500",
+          }}>
+            📋 Kopiera till nästa vecka
+          </button>
+        </div>
+      )}
     </div>
   );
 }

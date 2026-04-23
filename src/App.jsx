@@ -267,48 +267,58 @@ export default function App() {
       {/* Header */}
       <header style={{
         background: T.headerBg, borderBottom:`1px solid ${T.headerBorder}`,
-        padding:"12px 16px", position:"sticky", top:0, zIndex:100,
+        padding:"10px 16px", position:"sticky", top:0, zIndex:100,
         boxShadow: darkMode ? "0 1px 16px rgba(0,0,0,0.5)" : "0 1px 6px rgba(0,0,0,0.07)",
       }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:24 }}>🐴</span>
+            <span style={{ fontSize:22 }}>🐴</span>
             <div>
-              <h1 style={{ margin:0, fontSize:17, fontWeight:"700", color:T.accent, letterSpacing:"0.04em" }}>Stenstallet</h1>
-              <p style={{ margin:0, fontSize:9, color:T.textFaint, letterSpacing:"0.15em", textTransform:"uppercase" }}>Fodringsschema</p>
+              <h1 style={{ margin:0, fontSize:16, fontWeight:"700", color:T.accent, letterSpacing:"0.04em" }}>Stenstallet</h1>
+              <p style={{ margin:0, fontSize:8, color:T.textFaint, letterSpacing:"0.15em", textTransform:"uppercase" }}>Fodringsschema</p>
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
             <button onClick={() => setDarkMode(d => !d)} style={{
               background:"transparent", border:`1px solid ${T.cardBorder}`,
-              borderRadius:8, padding:"6px 10px", cursor:"pointer",
-              fontSize:15, color:T.textMuted, display:"flex", alignItems:"center", gap:5,
+              borderRadius:8, padding:"6px 8px", cursor:"pointer",
+              fontSize:15, color:T.textMuted, lineHeight:1,
             }}>
               {darkMode ? "☀️" : "🌙"}
-              <span style={{ fontSize:11, color:T.textMuted }}>{darkMode ? "Ljust" : "Mörkt"}</span>
             </button>
-            <button onClick={() => signOut(auth)} title={user.email} style={{
+            <button onClick={() => signOut(auth)} title={`Logga ut (${user.email})`} style={{
               background:"transparent", border:`1px solid ${T.cardBorder}`,
-              borderRadius:8, padding:"6px 10px", cursor:"pointer",
-              fontSize:13, color:T.textMuted, display:"flex", alignItems:"center", gap:5,
+              borderRadius:8, padding:"5px 10px", cursor:"pointer",
+              fontSize:11, color:T.textMuted, display:"flex", alignItems:"center", gap:5, lineHeight:1,
             }}>
-              <span style={{ maxWidth:100, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontSize:11 }}>{user.email}</span>
-              <span style={{ fontSize:11 }}>↩</span>
+              <span style={{ maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.email.split("@")[0]}</span>
+              <span style={{ fontSize:13 }}>↩</span>
             </button>
-            {[["vecka","📅 Vecka"],["historik","📋 Historik"],["personer","👤 Personal"]].map(([t, label]) => (
-              <button key={t} onClick={() => { setTab(t); if (t === "historik") loadHistory(); }} style={{
-                background: tab===t ? T.tabActiveBg : "transparent",
-                border:`1px solid ${tab===t ? T.accent : T.tabBorder}`,
-                borderRadius:8, padding:"6px 10px", cursor:"pointer",
-                color: tab===t ? "#fff" : T.textMuted, fontSize:12, fontWeight: tab===t ? "600":"400",
-                whiteSpace:"nowrap",
-              }}>{label}</button>
-            ))}
           </div>
         </div>
       </header>
 
-      <main style={{ padding:"12px 8px 60px" }}>
+      {/* Bottom navigation */}
+      <nav style={{
+        position:"fixed", bottom:0, left:0, right:0, zIndex:100,
+        background: T.headerBg, borderTop:`1px solid ${T.headerBorder}`,
+        display:"flex", boxShadow: darkMode ? "0 -1px 16px rgba(0,0,0,0.5)" : "0 -1px 6px rgba(0,0,0,0.07)",
+        paddingBottom:"env(safe-area-inset-bottom)",
+      }}>
+        {[["vecka","📅","Vecka"],["dag","🗓","Idag"],["historik","📋","Historik"],["personer","👤","Personal"]].map(([t, icon, label]) => (
+          <button key={t} onClick={() => { setTab(t); if (t === "historik") loadHistory(); if (t === "dag") setActiveDay(["Mån","Tis","Ons","Tor","Fre","Lör","Sön"][new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || "Mån"); }} style={{
+            flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+            padding:"8px 4px 10px",
+            background: "transparent", border:"none", cursor:"pointer",
+            borderTop: tab===t ? `2px solid ${T.accent}` : "2px solid transparent",
+          }}>
+            <span style={{ fontSize:18, lineHeight:1 }}>{icon}</span>
+            <span style={{ fontSize:10, marginTop:3, color: tab===t ? T.accent : T.textMuted, fontWeight: tab===t ? "700":"400" }}>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <main style={{ padding:"12px 8px 80px" }}>
         {tab === "vecka" && (
           <WeekView
             T={T} darkMode={darkMode}
