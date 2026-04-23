@@ -140,14 +140,14 @@ export default function App() {
     saveDoc("config/assignments", { map });
   };
 
-  const addHorse = (name, note) => {
-    const newH = { id: Date.now(), name, color: HORSE_COLORS[horses.length % HORSE_COLORS.length], note };
+  const addHorse = (name, note, ownerPersonId) => {
+    const newH = { id: Date.now(), name, color: HORSE_COLORS[horses.length % HORSE_COLORS.length], note, ownerPersonId: ownerPersonId || null };
     const list = [...horses, newH];
     setHorses(list);
     saveDoc("config/horses", { list });
   };
-  const saveHorse = (id, name, note) => {
-    const list = horses.map(h => h.id === id ? { ...h, name, note } : h);
+  const saveHorse = (id, name, note, ownerPersonId) => {
+    const list = horses.map(h => h.id === id ? { ...h, name, note, ownerPersonId: ownerPersonId || null } : h);
     setHorses(list);
     saveDoc("config/horses", { list });
   };
@@ -384,14 +384,14 @@ export default function App() {
           <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
             <PersonManager
               T={T}
-              persons={persons} assignments={assignments} myPersonId={myPersonId}
+              persons={persons} horses={horses} assignments={assignments} myPersonId={myPersonId}
               user={user}
               onShowIdentity={() => setShowIdentity(true)}
               onAdd={addPerson} onRemove={removePerson} onSave={savePerson}
             />
             <HorseManager
               T={T}
-              horses={horses}
+              horses={horses} persons={persons}
               onAdd={addHorse} onRemove={removeHorse} onSave={saveHorse}
             />
           </div>
