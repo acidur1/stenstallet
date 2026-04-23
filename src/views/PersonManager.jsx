@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PERSON_COLORS } from "../constants";
 
-export default function PersonManager({ T, persons, assignments, myPersonId, onShowIdentity, onAdd, onRemove, onSave }) {
+export default function PersonManager({ T, persons, assignments, myPersonId, user, onShowIdentity, onAdd, onRemove, onSave }) {
   const [editingId, setEditingId]     = useState(null);
   const [editName, setEditName]       = useState("");
   const [editColor, setEditColor]     = useState("");
@@ -44,7 +44,18 @@ export default function PersonManager({ T, persons, assignments, myPersonId, onS
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <div style={{ width:34, height:34, borderRadius:"50%", background:p.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, color:"#fff", fontWeight:"700" }}>{p.name[0]}</div>
                   <div>
-                    <div style={{ fontSize:15, fontWeight:"600", color:T.text }}>{p.name}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontSize:15, fontWeight:"600", color:T.text }}>{p.name}</span>
+                      {p.userId && (
+                        <span style={{
+                          fontSize:10, fontWeight:"600", padding:"1px 6px", borderRadius:10,
+                          background: p.userId === user?.uid ? `${p.color}33` : "rgba(120,120,140,0.15)",
+                          color: p.userId === user?.uid ? p.color : T.textMuted,
+                        }}>
+                          {p.userId === user?.uid ? "Du" : "Länkad"}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize:11, color:T.textMuted }}>{mySlots} pass denna vecka</div>
                   </div>
                 </div>

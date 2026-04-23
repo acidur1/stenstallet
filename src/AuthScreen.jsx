@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 
 const T = {
@@ -18,10 +19,14 @@ const T = {
   errorBg: "rgba(239,68,68,0.10)",
   errorBorder: "#7f1d1d",
   errorText: "#f87171",
+  successBg: "rgba(46,170,110,0.12)",
+  successBorder: "#1a5c3a",
+  successText: "#4ade80",
 };
 
 const FIREBASE_ERRORS = {
   "auth/invalid-email": "Ogiltig e-postadress.",
+  "auth/missing-email": "Ange din e-postadress.",
   "auth/user-not-found": "Inget konto hittades med den e-postadressen.",
   "auth/wrong-password": "Fel lösenord.",
   "auth/invalid-credential": "Fel e-post eller lösenord.",
@@ -35,11 +40,15 @@ export default function AuthScreen({ auth }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [resetSent, setResetSent] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const switchMode = (next) => { setMode(next); setError(""); setResetSent(false); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setResetSent(false);
     setBusy(true);
     try {
       if (mode === "signup") {
@@ -47,6 +56,20 @@ export default function AuthScreen({ auth }) {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
+    } catch (err) {
+      setError(FIREBASE_ERRORS[err.code] || "Något gick fel. Försök igen.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReset = async () => {
+    setError("");
+    setResetSent(false);
+    setBusy(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
     } catch (err) {
       setError(FIREBASE_ERRORS[err.code] || "Något gick fel. Försök igen.");
     } finally {
@@ -115,9 +138,21 @@ export default function AuthScreen({ auth }) {
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: "600", color: T.textMuted, marginBottom: 5 }}>
-                Lösenord
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: "600", color: T.textMuted }}>
+                  Lösenord
+                </label>
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    disabled={busy}
+                    style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 11, padding: 0, opacity: busy ? 0.5 : 1 }}
+                  >
+                    Glömt lösenordet?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 value={password}
@@ -139,6 +174,19 @@ export default function AuthScreen({ auth }) {
                 color: T.errorText,
               }}>
                 {error}
+              </div>
+            )}
+
+            {resetSent && (
+              <div style={{
+                background: T.successBg,
+                border: `1px solid ${T.successBorder}`,
+                borderRadius: 8,
+                padding: "10px 12px",
+                fontSize: 13,
+                color: T.successText,
+              }}>
+                En återställningslänk har skickats till {email}.
               </div>
             )}
 
@@ -165,13 +213,13 @@ export default function AuthScreen({ auth }) {
           <div style={{ marginTop: 20, textAlign: "center", fontSize: 13, color: T.textMuted }}>
             {mode === "signin" ? (
               <>Har du inget konto?{" "}
-                <button onClick={() => { setMode("signup"); setError(""); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: "600", padding: 0 }}>
+                <button onClick={() => switchMode("signup")} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: "600", padding: 0 }}>
                   Registrera dig
                 </button>
               </>
             ) : (
               <>Har du redan ett konto?{" "}
-                <button onClick={() => { setMode("signin"); setError(""); }} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: "600", padding: 0 }}>
+                <button onClick={() => switchMode("signin")} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: "600", padding: 0 }}>
                   Logga in
                 </button>
               </>
