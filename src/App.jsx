@@ -75,7 +75,15 @@ export default function App() {
   }, [weekOffset]);
 
   useEffect(() => {
-    if (!loading && !myPersonId) setShowIdentity(true);
+    if (!loading) {
+      const linked = user ? persons.find(p => p.userId === user.uid) : null;
+      if (linked) {
+        setMyPersonId(linked.id);
+        localStorage.setItem("stenPersonId", String(linked.id));
+      } else if (!myPersonId) {
+        setShowIdentity(true);
+      }
+    }
   }, [loading]);
 
   // ── Push notifications ────────────────────────────────────────────────────
@@ -97,6 +105,13 @@ export default function App() {
   };
 
   const selectIdentity = async (personId) => {
+    const list = persons.map(p => {
+      if (p.userId === user.uid && p.id !== personId) return { ...p, userId: null };
+      if (p.id === personId) return { ...p, userId: user.uid };
+      return p;
+    });
+    setPersons(list);
+    await saveDoc("config/persons", { list });
     localStorage.setItem("stenPersonId", String(personId));
     setMyPersonId(personId);
     setShowIdentity(false);
@@ -125,14 +140,14 @@ export default function App() {
     saveDoc("config/assignments", { map });
   };
 
-  const addHorse = (name, note) => {
-    const newH = { id: Date.now(), name, color: HORSE_COLORS[horses.length % HORSE_COLORS.length], note };
+  const addHorse = (name, note, ownerPersonId) => {
+    const newH = { id: Date.now(), name, color: HORSE_COLORS[horses.length % HORSE_COLORS.length], note, ownerPersonId: ownerPersonId || null };
     const list = [...horses, newH];
     setHorses(list);
     saveDoc("config/horses", { list });
   };
-  const saveHorse = (id, name, note) => {
-    const list = horses.map(h => h.id === id ? { ...h, name, note } : h);
+  const saveHorse = (id, name, note, ownerPersonId) => {
+    const list = horses.map(h => h.id === id ? { ...h, name, note, ownerPersonId: ownerPersonId || null } : h);
     setHorses(list);
     saveDoc("config/horses", { list });
   };
@@ -253,7 +268,16 @@ export default function App() {
                 <span style={{ fontSize:17, fontWeight:"600", color:T.text }}>{p.name}</span>
               </button>
             ))}
-            <button onClick={() => { localStorage.setItem("stenPersonId", "none"); setMyPersonId("none"); setShowIdentity(false); }} style={{
+            <button onClick={() => {
+              if (user) {
+                const list = persons.map(p => p.userId === user.uid ? { ...p, userId: null } : p);
+                setPersons(list);
+                saveDoc("config/persons", { list });
+              }
+              localStorage.setItem("stenPersonId", "none");
+              setMyPersonId("none");
+              setShowIdentity(false);
+            }} style={{
               padding:"14px 18px", borderRadius:14, cursor:"pointer", textAlign:"center",
               background:"transparent", border:`2px dashed ${T.cardBorder}`,
               color:T.textMuted, fontSize:15, fontWeight:"500",
@@ -360,13 +384,14 @@ export default function App() {
           <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
             <PersonManager
               T={T}
-              persons={persons} assignments={assignments} myPersonId={myPersonId}
+              persons={persons} horses={horses} assignments={assignments} myPersonId={myPersonId}
+              user={user}
               onShowIdentity={() => setShowIdentity(true)}
               onAdd={addPerson} onRemove={removePerson} onSave={savePerson}
             />
             <HorseManager
               T={T}
-              horses={horses}
+              horses={horses} persons={persons}
               onAdd={addHorse} onRemove={removeHorse} onSave={saveHorse}
             />
           </div>
