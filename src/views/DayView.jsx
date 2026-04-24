@@ -11,8 +11,7 @@ export default function DayView({
 }) {
   const [editingSlot, setEditingSlot] = useState(null);
 
-  const getPerson      = (id) => persons.find(p => p.id === id);
-  const mealDoneCount  = (day, mealId) => horses.filter(h => done[`${day}-${mealId}-${h.id}`]).length;
+  const getPerson = (id) => persons.find(p => p.id === id);
 
   const handleAssign = (day, mealId, personId) => {
     onAssignPerson(day, mealId, personId);
@@ -49,13 +48,10 @@ export default function DayView({
           const assignedId = assignments[slotKey];
           const person     = assignedId ? getPerson(assignedId) : null;
           const isEditing  = editingSlot === slotKey;
-          const doneCount  = mealDoneCount(activeDay, meal.id);
-          const allDone    = horses.length > 0 && doneCount === horses.length;
-
           return (
             <div key={meal.id} style={{
-              background: allDone ? T.cardBgDone : T.cardBg,
-              border:`1px solid ${allDone ? T.cardBorderDone : T.cardBorder}`,
+              background: T.cardBg,
+              border:`1px solid ${T.cardBorder}`,
               borderRadius:12, overflow:"hidden",
               boxShadow: darkMode ? "0 2px 8px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
             }}>
@@ -69,13 +65,6 @@ export default function DayView({
                   </div>
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  {horses.length > 0 && (
-                    <span style={{
-                      fontSize:12, fontWeight:"600", padding:"2px 8px", borderRadius:20,
-                      background: allDone ? (darkMode?"rgba(74,222,128,0.12)":"rgba(22,163,74,0.1)") : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.05)"),
-                      color: allDone ? T.doneText : T.textMuted,
-                    }}>{doneCount}/{horses.length}</span>
-                  )}
                   <div onClick={() => setEditingSlot(isEditing ? null : slotKey)} style={{
                     display:"flex", alignItems:"center", gap:7,
                     background: person ? `${person.color}18` : (darkMode?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.04)"),
@@ -110,40 +99,6 @@ export default function DayView({
                     </button>
                   ))}
                   <button onClick={() => handleAssign(activeDay, meal.id, null)} style={{ background:"transparent", border:`1px dashed ${T.cardBorder}`, borderRadius:22, padding:"5px 11px", cursor:"pointer", color:T.textMuted, fontSize:12 }}>✕ Ingen</button>
-                </div>
-              )}
-
-              {/* Horse checklist */}
-              {horses.length > 0 && (
-                <div style={{ padding:"4px 14px 10px" }}>
-                  {horses.map((horse, idx) => {
-                    const isDone = !!done[`${activeDay}-${meal.id}-${horse.id}`];
-                    return (
-                      <div key={horse.id} onClick={() => onToggleDone(activeDay, meal.id, horse.id)} style={{
-                        display:"flex", alignItems:"center", gap:12,
-                        padding:"10px 0",
-                        borderBottom: idx < horses.length - 1 ? `1px solid ${T.rowBorder}` : "none",
-                        cursor:"pointer",
-                      }}>
-                        <div style={{
-                          width:22, height:22, borderRadius:6, flexShrink:0,
-                          background: isDone ? horse.color : T.checkBg,
-                          border:`2px solid ${isDone ? horse.color : T.cardBorder}`,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          transition:"all 0.15s",
-                        }}>
-                          {isDone && <span style={{ color:"#fff", fontSize:12, lineHeight:1 }}>✓</span>}
-                        </div>
-                        <div style={{ width:8, height:8, borderRadius:"50%", background:horse.color, flexShrink:0 }} />
-                        <span style={{
-                          fontSize:15, fontWeight:"500", flex:1,
-                          color: isDone ? T.textFaint : T.text,
-                          textDecoration: isDone ? "line-through" : "none",
-                        }}>{horse.name}</span>
-                        {horse.note && <span style={{ fontSize:11, color:T.textFaint }}>{horse.note}</span>}
-                      </div>
-                    );
-                  })}
                 </div>
               )}
 
