@@ -1,13 +1,16 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const webpush = require("web-push");
+const { GoogleGenAI } = require("@google/genai");
 
 admin.initializeApp();
 const db = admin.firestore();
 
 const VAPID_PUBLIC_KEY  = defineSecret("VAPID_PUBLIC_KEY");
 const VAPID_PRIVATE_KEY = defineSecret("VAPID_PRIVATE_KEY");
+const GEMINI_API_KEY    = defineSecret("GEMINI_API_KEY");
 
 const DAYS = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 
@@ -97,4 +100,70 @@ exports.remindMiddag = onSchedule(
 exports.remindKvall = onSchedule(
   { schedule: "0 20 * * *", timeZone: "Europe/Stockholm", secrets },
   () => sendReminder("kvall", "Kväll", "20:30")
+);
+
+// ── Whiteboard sync ───────────────────────────────────────────────────────────
+exports.parseWhiteboard = onRequest(
+  { secrets: [GEMINI_API_KEY], cors: true, timeoutSeconds: 60, region: "europe-west1" },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+
+    const { imageBase64, mimeType, persons, meals, weekOffset } = req.body;
+    if (!imageBase64 || !persons || !meals) return res.status(400).send("Missing fields");
+
+    const personNames = persons.map(p => p.name).join(", ");
+    const mealIds     = meals.map(m => m.id).join(", ");
+    const days        = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+
+    const prompt = `Du ser ett handskrivet fodringsschema för ett stall på en whiteboard.
+
+Kända personer i systemet: ${personNames}
+Måltider: ${mealIds} (morgon, lunch, middag, kvall)
+Veckodagar: ${days.join(", ")}
+
+Analysera bilden och extrahera schemat. Returnera ENDAST ett JSON-objekt utan förklaringar eller markdown.
+
+Format:
+{
+  "schedule": {
+    "Mån-morgon": "PersonNamn",
+    "Mån-lunch": "PersonNamn",
+    "Mån-middag": "PersonNamn",
+    "Mån-kvall": "PersonNamn",
+    "Tis-morgon": "PersonNamn",
+    ... (alla 28 kombinationer)
+  },
+  "confidence": "high|medium|low",
+  "notes": "eventuella kommentarer om otydligheter"
+}
+
+Viktigt:
+- Matcha namnen mot de kända personerna ovan (använd exakt stavning från listan)
+- Om en cell är tom eller oläslig, sätt null
+- "Box: X" är hästboxar, inte personer — sätt null för dessa
+- Fokusera på den aktuella veckan om schemat visar flera veckor`;
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
+
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { role: "user", parts: [
+            { text: prompt },
+            { inlineData: { data: imageBase64, mimeType: mimeType || "image/jpeg" } },
+          ]},
+        ],
+      });
+
+      const text = result.text.trim();
+      const json = text.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+      const parsed = JSON.parse(json);
+
+      res.json(parsed);
+    } catch (err) {
+      console.error("parseWhiteboard error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  }
 );

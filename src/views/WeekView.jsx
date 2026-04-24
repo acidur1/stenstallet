@@ -6,6 +6,7 @@ export default function WeekView({
   weekDates, weekNum, dateRangeStr, todayDayIdx,
   assignments, persons,
   copyToNextWeek,
+  onSyncWhiteboard,
   pendingSwapsForOthers,
   myPersonId,
   onAcceptSwap,
@@ -181,8 +182,8 @@ export default function WeekView({
       </div>
       <p style={{ fontSize:11, color:T.textFaint, marginTop:12, fontStyle:"italic" }}>Tryck på en cell för att öppna dagen.</p>
 
-      {weekOffset === 0 && Object.keys(assignments).length > 0 && (
-        <div style={{ display:"flex", justifyContent:"center", marginTop:16 }}>
+      <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:16 }}>
+        {weekOffset === 0 && Object.keys(assignments).length > 0 && (
           <button onClick={copyToNextWeek} style={{
             display:"flex", alignItems:"center", gap:6, padding:"10px 18px",
             background:T.cardBg, border:`1px solid ${T.cardBorder}`,
@@ -190,8 +191,15 @@ export default function WeekView({
           }}>
             📋 Kopiera till nästa vecka
           </button>
-        </div>
-      )}
+        )}
+        <button onClick={onSyncWhiteboard} style={{
+          display:"flex", alignItems:"center", gap:6, padding:"10px 18px",
+          background:T.cardBg, border:`1px solid ${T.cardBorder}`,
+          borderRadius:10, cursor:"pointer", color:T.textMuted, fontSize:13, fontWeight:"500",
+        }}>
+          📸 Synka whiteboard
+        </button>
+      </div>
     </div>
   );
 }

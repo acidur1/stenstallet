@@ -24,7 +24,7 @@ Fodringsschema-app för stallet. Håller koll på vem som ansvarar för morgon, 
 | Backend | Firebase Cloud Functions (Node.js) |
 | Push | Web Push API med VAPID-nycklar |
 | PWA | Service Worker + Web App Manifest |
-| Hosting | Netlify |
+| Hosting | backendboys.com (via GitHub auto-deploy) |
 
 ## Projektstruktur
 
@@ -57,8 +57,7 @@ npm run dev
 ## Deploy
 
 ```bash
-npm run build
-netlify deploy --prod --dir=dist
+git push
 ```
 
 Firebase Functions:

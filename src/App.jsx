@@ -8,12 +8,15 @@ import {
   getWeekDates, getISOWeek, getWeekKey, fmtDate,
   SV_MONTHS, VAPID_PUBLIC_KEY, urlBase64ToUint8Array,
 } from "./constants";
-import AuthScreen    from "./AuthScreen";
-import WeekView      from "./views/WeekView";
-import DayView       from "./views/DayView";
-import HistoryView   from "./views/HistoryView";
-import PersonManager from "./views/PersonManager";
-import HorseManager  from "./views/HorseManager";
+import AuthScreen      from "./AuthScreen";
+import WeekView        from "./views/WeekView";
+import DayView         from "./views/DayView";
+import HistoryView     from "./views/HistoryView";
+import PersonManager   from "./views/PersonManager";
+import HorseManager    from "./views/HorseManager";
+import WhiteboardSync  from "./views/WhiteboardSync";
+
+const WHITEBOARD_FUNCTION_URL = "https://parsewhiteboard-knzo2o62qa-ew.a.run.app";
 
 export default function App() {
   const [user, setUser]             = useState(null);
@@ -28,6 +31,7 @@ export default function App() {
   const [history, setHistory]       = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [tab, setTab]               = useState("vecka");
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [activeDay, setActiveDay]   = useState("Mån");
   const [weekOffset, setWeekOffset] = useState(0);
   const [myPersonId, setMyPersonId] = useState(() => {
@@ -171,6 +175,13 @@ export default function App() {
   };
   const copyToNextWeek = () =>
     saveDoc(`config/assignments_${getWeekKey(weekOffset + 1)}`, { map: { ...assignments } });
+
+  const applyWhiteboardChanges = (updates) => {
+    const map = { ...assignments, ...updates };
+    setAssignments(map);
+    saveDoc(`config/assignments_${getWeekKey(weekOffset)}`, { map });
+    setShowWhiteboard(false);
+  };
 
   // ── Swap actions ──────────────────────────────────────────────────────────
   const saveSwaps = (map) => saveDoc(`schedule/swaps_${getWeekKey(weekOffset)}`, { map });
@@ -350,11 +361,31 @@ export default function App() {
             weekDates={weekDates} weekNum={weekNum} dateRangeStr={dateRangeStr} todayDayIdx={todayDayIdx}
             assignments={assignments} persons={persons}
             copyToNextWeek={copyToNextWeek}
+            onSyncWhiteboard={() => setShowWhiteboard(true)}
             pendingSwapsForOthers={pendingSwapsForOthers}
             myPersonId={myPersonId}
             onAcceptSwap={acceptSwap}
             onNavigateToDay={navigateToDay}
           />
+        )}
+
+        {showWhiteboard && (
+          <div style={{ position:"fixed", inset:0, zIndex:200, background: darkMode ? "rgba(10,12,20,0.97)" : "rgba(244,246,251,0.97)", display:"flex", flexDirection:"column", padding:"24px 16px 40px", overflowY:"auto" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+              <span style={{ fontSize:16, fontWeight:"700", color:T.text }}>📸 Synka vecka {weekNum} med whiteboard</span>
+              <button onClick={() => setShowWhiteboard(false)} style={{ background:"transparent", border:"none", color:T.textMuted, cursor:"pointer", fontSize:22 }}>✕</button>
+            </div>
+            <WhiteboardSync
+              T={T} darkMode={darkMode}
+              persons={persons}
+              assignments={assignments}
+              weekOffset={weekOffset}
+              weekDates={weekDates}
+              weekNum={weekNum}
+              onApply={applyWhiteboardChanges}
+              functionUrl={WHITEBOARD_FUNCTION_URL}
+            />
+          </div>
         )}
 
         {tab === "dag" && (
