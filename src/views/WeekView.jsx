@@ -5,7 +5,6 @@ export default function WeekView({
   weekOffset, setWeekOffset,
   weekDates, weekNum, dateRangeStr, todayDayIdx,
   assignments, persons,
-  copyToNextWeek,
   onSyncWhiteboard,
   pendingSwapsForOthers,
   myPersonId,
@@ -18,7 +17,7 @@ export default function WeekView({
     <div>
       {/* Week navigation */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, gap:8 }}>
-        <button onClick={() => setWeekOffset(0)} disabled={weekOffset === 0} style={{
+        <button onClick={() => setWeekOffset(w => Math.max(0, w - 1))} disabled={weekOffset === 0} style={{
           background:T.cardBg, border:`1px solid ${T.cardBorder}`,
           borderRadius:8, padding:"8px 14px", cursor: weekOffset === 0 ? "default" : "pointer",
           color: weekOffset === 0 ? T.textFaint : T.textMuted, fontSize:18, lineHeight:1, flexShrink:0,
@@ -28,13 +27,15 @@ export default function WeekView({
             Vecka {weekNum}
             {weekOffset === 0 && <span style={{ marginLeft:7, fontSize:11, color:T.accent, fontWeight:"500" }}>denna vecka</span>}
             {weekOffset === 1 && <span style={{ marginLeft:7, fontSize:11, color:T.textMuted, fontWeight:"500" }}>nästa vecka</span>}
+            {weekOffset === 2 && <span style={{ marginLeft:7, fontSize:11, color:T.textMuted, fontWeight:"500" }}>om 2 veckor</span>}
+            {weekOffset === 3 && <span style={{ marginLeft:7, fontSize:11, color:T.textMuted, fontWeight:"500" }}>om 3 veckor</span>}
           </div>
           <div style={{ fontSize:12, color:T.textMuted, marginTop:2 }}>{dateRangeStr}</div>
         </div>
-        <button onClick={() => setWeekOffset(1)} disabled={weekOffset === 1} style={{
+        <button onClick={() => setWeekOffset(w => Math.min(3, w + 1))} disabled={weekOffset === 3} style={{
           background:T.cardBg, border:`1px solid ${T.cardBorder}`,
-          borderRadius:8, padding:"8px 14px", cursor: weekOffset === 1 ? "default" : "pointer",
-          color: weekOffset === 1 ? T.textFaint : T.textMuted, fontSize:18, lineHeight:1, flexShrink:0,
+          borderRadius:8, padding:"8px 14px", cursor: weekOffset === 3 ? "default" : "pointer",
+          color: weekOffset === 3 ? T.textFaint : T.textMuted, fontSize:18, lineHeight:1, flexShrink:0,
         }}>›</button>
       </div>
 
@@ -183,15 +184,6 @@ export default function WeekView({
       <p style={{ fontSize:11, color:T.textFaint, marginTop:12, fontStyle:"italic" }}>Tryck på en cell för att öppna dagen.</p>
 
       <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:16 }}>
-        {weekOffset === 0 && Object.keys(assignments).length > 0 && (
-          <button onClick={copyToNextWeek} style={{
-            display:"flex", alignItems:"center", gap:6, padding:"10px 18px",
-            background:T.cardBg, border:`1px solid ${T.cardBorder}`,
-            borderRadius:10, cursor:"pointer", color:T.textMuted, fontSize:13, fontWeight:"500",
-          }}>
-            📋 Kopiera till nästa vecka
-          </button>
-        )}
         <button onClick={onSyncWhiteboard} style={{
           display:"flex", alignItems:"center", gap:6, padding:"10px 18px",
           background:T.cardBg, border:`1px solid ${T.cardBorder}`,

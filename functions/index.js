@@ -108,40 +108,63 @@ exports.parseWhiteboard = onRequest(
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
-    const { imageBase64, mimeType, persons, meals, weekOffset } = req.body;
+    const { imageBase64, mimeType, persons, meals, weekNums, horses } = req.body;
     if (!imageBase64 || !persons || !meals) return res.status(400).send("Missing fields");
 
     const personNames = persons.map(p => p.name).join(", ");
-    const mealIds     = meals.map(m => m.id).join(", ");
+    const mealIds     = meals.map(m => m.id);
     const days        = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+    const weeksStr    = (weekNums || []).join(", ");
+
+    const slotExamples = days.slice(0,2).flatMap(d => mealIds.map(m => `"${d}-${m}"`)).join(", ");
+    const isMorgonKvall = mealIds.includes("morgon") || mealIds.includes("kvall");
+
+    const boxLines = (horses || [])
+      .filter(h => h.boxNumber && h.ownerPersonId)
+      .map(h => {
+        const owner = persons.find(p => p.id === h.ownerPersonId);
+        return owner ? `Box ${h.boxNumber} = ${owner.name}` : null;
+      })
+      .filter(Boolean);
+    const boxHint = boxLines.length > 0
+      ? `\nBox-nummer till ägare: ${boxLines.join(", ")} — om du ser "Box: N" på tavlan, använd ägarens namn istället.`
+      : "";
+
+    const layoutDesc = isMorgonKvall
+      ? `Tavlan är uppbyggd som en lång vertikal kolumn: dagar listas i följd (Mån, Tis, Ons, Tor, Fre, Lör, Sön) och upprepa sedan för nästa vecka. Veckonumret syns vanligtvis till höger om den sista dagen i varje vecka (t.ex. stor röd siffra). Datumnumret syns ibland till höger om varje dag.`
+      : `Tavlan visar vanligtvis 4 veckor i ett 2×2-rutnät med veckonummer i övre vänstra hörnet på varje block.`;
 
     const prompt = `Du ser ett handskrivet fodringsschema för ett stall på en whiteboard.
 
-Kända personer i systemet: ${personNames}
-Måltider: ${mealIds} (morgon, lunch, middag, kvall)
+Kända personer i systemet: ${personNames}${boxHint}
+Måltider att extrahera: ${mealIds.join(", ")}
 Veckodagar: ${days.join(", ")}
+Veckor att extrahera (visas som siffror på tavlan): ${weeksStr}
 
-Analysera bilden och extrahera schemat. Returnera ENDAST ett JSON-objekt utan förklaringar eller markdown.
+${layoutDesc}
+
+Returnera ENDAST ett JSON-objekt utan förklaringar eller markdown.
 
 Format:
 {
-  "schedule": {
-    "Mån-morgon": "PersonNamn",
-    "Mån-lunch": "PersonNamn",
-    "Mån-middag": "PersonNamn",
-    "Mån-kvall": "PersonNamn",
-    "Tis-morgon": "PersonNamn",
-    ... (alla 28 kombinationer)
+  "weeks": {
+    "${weekNums?.[0] ?? "V1"}": {
+      ${slotExamples}: "PersonNamn",
+      "... (alla 7 dagar × ${mealIds.length} måltider)"
+    },
+    "${weekNums?.[1] ?? "V2"}": { "..." },
+    "${weekNums?.[2] ?? "V3"}": { "..." },
+    "${weekNums?.[3] ?? "V4"}": { "..." }
   },
-  "confidence": "high|medium|low",
   "notes": "eventuella kommentarer om otydligheter"
 }
 
 Viktigt:
-- Matcha namnen mot de kända personerna ovan (använd exakt stavning från listan)
+- Matcha namnen mot de kända personerna (använd exakt stavning från listan)
 - Om en cell är tom eller oläslig, sätt null
-- "Box: X" är hästboxar, inte personer — sätt null för dessa
-- Fokusera på den aktuella veckan om schemat visar flera veckor`;
+- Om du ser "Box: N" och box-numret finns i listan ovan — använd ägarens namn; annars sätt null
+- Veckonumren syns på tavlan — matcha varje veckas schema mot rätt nummer
+- Extrahera bara måltiderna: ${mealIds.join(", ")}`;
 
     try {
       const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });

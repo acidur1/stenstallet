@@ -21,7 +21,7 @@ const WHITEBOARD_FUNCTION_URL = "https://parsewhiteboard-knzo2o62qa-ew.a.run.app
 export default function App() {
   const [user, setUser]             = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [darkMode, setDarkMode]     = useState(true);
+  const [darkMode, setDarkMode]     = useState(() => localStorage.getItem("stenDarkMode") !== "false");
   const [persons, setPersons]       = useState([]);
   const [horses, setHorses]         = useState([]);
   const [assignments, setAssignments] = useState({});
@@ -144,14 +144,20 @@ export default function App() {
     saveDoc("config/assignments", { map });
   };
 
-  const addHorse = (name, note, ownerPersonId) => {
-    const newH = { id: Date.now(), name, color: HORSE_COLORS[horses.length % HORSE_COLORS.length], note, ownerPersonId: ownerPersonId || null };
+  const horseColor = (ownerPersonId, fallbackIdx) => {
+    const owner = ownerPersonId ? persons.find(p => p.id === ownerPersonId) : null;
+    return owner ? owner.color : HORSE_COLORS[(fallbackIdx ?? horses.length) % HORSE_COLORS.length];
+  };
+
+  const addHorse = (name, note, ownerPersonId, boxNumber) => {
+    const newH = { id: Date.now(), name, color: horseColor(ownerPersonId, horses.length), note, ownerPersonId: ownerPersonId || null, boxNumber: boxNumber || null };
     const list = [...horses, newH];
     setHorses(list);
     saveDoc("config/horses", { list });
   };
-  const saveHorse = (id, name, note, ownerPersonId) => {
-    const list = horses.map(h => h.id === id ? { ...h, name, note, ownerPersonId: ownerPersonId || null } : h);
+  const saveHorse = (id, name, note, ownerPersonId, boxNumber) => {
+    const color = horseColor(ownerPersonId) || horses.find(h => h.id === id)?.color;
+    const list = horses.map(h => h.id === id ? { ...h, name, note, color, ownerPersonId: ownerPersonId || null, boxNumber: boxNumber || null } : h);
     setHorses(list);
     saveDoc("config/horses", { list });
   };
@@ -173,13 +179,13 @@ export default function App() {
     setDone(map);
     saveDoc(`schedule/done_${getWeekKey(weekOffset)}`, { map });
   };
-  const copyToNextWeek = () =>
-    saveDoc(`config/assignments_${getWeekKey(weekOffset + 1)}`, { map: { ...assignments } });
 
-  const applyWhiteboardChanges = (updates) => {
-    const map = { ...assignments, ...updates };
-    setAssignments(map);
-    saveDoc(`config/assignments_${getWeekKey(weekOffset)}`, { map });
+  const applyWhiteboardChanges = (weeklyUpdates) => {
+    // weeklyUpdates: { [weekKey]: fullAssignmentsMap }
+    for (const [key, map] of Object.entries(weeklyUpdates)) {
+      saveDoc(`config/assignments_${key}`, { map });
+      if (key === getWeekKey(weekOffset)) setAssignments(map);
+    }
     setShowWhiteboard(false);
   };
 
@@ -314,7 +320,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <button onClick={() => setDarkMode(d => !d)} style={{
+            <button onClick={() => setDarkMode(d => { localStorage.setItem("stenDarkMode", String(!d)); return !d; })} style={{
               background:"transparent", border:`1px solid ${T.cardBorder}`,
               borderRadius:8, padding:"6px 8px", cursor:"pointer",
               fontSize:15, color:T.textMuted, lineHeight:1,
@@ -360,7 +366,7 @@ export default function App() {
             weekOffset={weekOffset} setWeekOffset={setWeekOffset}
             weekDates={weekDates} weekNum={weekNum} dateRangeStr={dateRangeStr} todayDayIdx={todayDayIdx}
             assignments={assignments} persons={persons}
-            copyToNextWeek={copyToNextWeek}
+
             onSyncWhiteboard={() => setShowWhiteboard(true)}
             pendingSwapsForOthers={pendingSwapsForOthers}
             myPersonId={myPersonId}
@@ -372,16 +378,14 @@ export default function App() {
         {showWhiteboard && (
           <div style={{ position:"fixed", inset:0, zIndex:200, background: darkMode ? "rgba(10,12,20,0.97)" : "rgba(244,246,251,0.97)", display:"flex", flexDirection:"column", padding:"24px 16px 40px", overflowY:"auto" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-              <span style={{ fontSize:16, fontWeight:"700", color:T.text }}>📸 Synka vecka {weekNum} med whiteboard</span>
+              <span style={{ fontSize:16, fontWeight:"700", color:T.text }}>📸 Synka med whiteboard</span>
               <button onClick={() => setShowWhiteboard(false)} style={{ background:"transparent", border:"none", color:T.textMuted, cursor:"pointer", fontSize:22 }}>✕</button>
             </div>
             <WhiteboardSync
               T={T} darkMode={darkMode}
               persons={persons}
-              assignments={assignments}
-              weekOffset={weekOffset}
-              weekDates={weekDates}
-              weekNum={weekNum}
+              horses={horses}
+              weekInfos={[0,1,2,3].map(i => ({ weekNum: getISOWeek(getWeekDates(i)[0]), weekKey: getWeekKey(i) }))}
               onApply={applyWhiteboardChanges}
               functionUrl={WHITEBOARD_FUNCTION_URL}
             />
