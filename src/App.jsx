@@ -36,9 +36,12 @@ export default function App() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [myPersonId, setMyPersonId] = useState(() => {
     const s = localStorage.getItem("stenPersonId");
-    return s ? Number(s) : null;
+    if (!s) return null;
+    if (s === "none") return "none";
+    return Number(s) || null;
   });
   const [showIdentity, setShowIdentity] = useState(false);
+  const [personerTab, setPersonerTab]   = useState("personal"); // "personal" | "hastar"
 
   const T = darkMode ? THEMES.dark : THEMES.light;
 
@@ -84,7 +87,7 @@ export default function App() {
       if (linked) {
         setMyPersonId(linked.id);
         localStorage.setItem("stenPersonId", String(linked.id));
-      } else if (!myPersonId) {
+      } else if (myPersonId === null) {
         setShowIdentity(true);
       }
     }
@@ -346,14 +349,18 @@ export default function App() {
         display:"flex", boxShadow: darkMode ? "0 -1px 16px rgba(0,0,0,0.5)" : "0 -1px 6px rgba(0,0,0,0.07)",
         paddingBottom:"env(safe-area-inset-bottom)",
       }}>
-        {[["vecka","📅","Vecka"],["dag","🗓","Idag"],["historik","📋","Historik"],["personer","👤","Personal"]].map(([t, icon, label]) => (
+        {[["vecka",null,"Vecka"],["dag","🗓","Idag"],["historik","📋","Historik"],["personer","👤","Personal"]].map(([t, icon, label]) => (
           <button key={t} onClick={() => { setTab(t); if (t === "historik") loadHistory(); if (t === "dag") setActiveDay(["Mån","Tis","Ons","Tor","Fre","Lör","Sön"][new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || "Mån"); }} style={{
             flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-            padding:"8px 4px 10px",
-            background: "transparent", border:"none", cursor:"pointer",
+            padding:"8px 4px 10px", background:"transparent", border:"none", cursor:"pointer",
             borderTop: tab===t ? `2px solid ${T.accent}` : "2px solid transparent",
           }}>
-            <span style={{ fontSize:18, lineHeight:1 }}>{icon}</span>
+            {t === "vecka"
+              ? <div style={{ width:28, height:24, borderRadius:5, background: tab==="vecka" ? T.accent : T.cardBg, border:`1.5px solid ${tab==="vecka" ? T.accent : T.cardBorder}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <span style={{ fontSize:12, fontWeight:"800", color: tab==="vecka" ? "#fff" : T.textMuted, lineHeight:1 }}>{weekNum}</span>
+                </div>
+              : <span style={{ fontSize:18, lineHeight:1 }}>{icon}</span>
+            }
             <span style={{ fontSize:10, marginTop:3, color: tab===t ? T.accent : T.textMuted, fontWeight: tab===t ? "700":"400" }}>{label}</span>
           </button>
         ))}
@@ -416,19 +423,33 @@ export default function App() {
         )}
 
         {tab === "personer" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
-            <PersonManager
-              T={T}
-              persons={persons} horses={horses} assignments={assignments} myPersonId={myPersonId}
-              user={user}
-              onShowIdentity={() => setShowIdentity(true)}
-              onAdd={addPerson} onRemove={removePerson} onSave={savePerson}
-            />
-            <HorseManager
-              T={T}
-              horses={horses} persons={persons}
-              onAdd={addHorse} onRemove={removeHorse} onSave={saveHorse}
-            />
+          <div>
+            <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+              {[["personal","👤","Personal"],["hastar","🐎","Hästar"]].map(([t, icon, label]) => (
+                <button key={t} onClick={() => setPersonerTab(t)} style={{
+                  flex:1, padding:"9px", borderRadius:9, cursor:"pointer", fontSize:13, fontWeight:"600",
+                  background: personerTab===t ? T.tabActiveBg : T.cardBg,
+                  border: `1px solid ${personerTab===t ? T.accent : T.cardBorder}`,
+                  color: personerTab===t ? "#fff" : T.textMuted,
+                }}>
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+            {personerTab === "personal"
+              ? <PersonManager
+                  T={T}
+                  persons={persons} horses={horses} assignments={assignments} myPersonId={myPersonId}
+                  user={user}
+                  onShowIdentity={() => setShowIdentity(true)}
+                  onAdd={addPerson} onRemove={removePerson} onSave={savePerson}
+                />
+              : <HorseManager
+                  T={T}
+                  horses={horses} persons={persons}
+                  onAdd={addHorse} onRemove={removeHorse} onSave={saveHorse}
+                />
+            }
           </div>
         )}
       </main>

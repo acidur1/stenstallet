@@ -24,15 +24,13 @@ export default function PersonManager({ T, persons, horses, assignments, myPerso
 
   return (
     <div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-        <h2 style={{ fontSize:14, fontWeight:"700", color:T.text, margin:0 }}>👤 Personal</h2>
-        {me && (
-          <button onClick={onShowIdentity} style={{ display:"flex", alignItems:"center", gap:6, background:T.editBtn.bg, border:`1px solid ${T.editBtn.border}`, borderRadius:20, padding:"4px 10px 4px 6px", cursor:"pointer" }}>
-            <div style={{ width:18, height:18, borderRadius:"50%", background:me.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:"700" }}>{me.name[0]}</div>
-            <span style={{ fontSize:11, color:T.editBtn.color, fontWeight:"600" }}>Byt identitet</span>
-          </button>
-        )}
-      </div>
+      <button onClick={onShowIdentity} style={{ display:"flex", alignItems:"center", gap:6, background:T.editBtn.bg, border:`1px solid ${T.editBtn.border}`, borderRadius:20, padding:"4px 10px 4px 6px", cursor:"pointer", marginBottom:8 }}>
+        {me
+          ? <><div style={{ width:18, height:18, borderRadius:"50%", background:me.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", fontWeight:"700" }}>{me.name[0]}</div>
+              <span style={{ fontSize:11, color:T.editBtn.color, fontWeight:"600" }}>Byt identitet</span></>
+          : <span style={{ fontSize:11, color:T.editBtn.color, fontWeight:"600" }}>👤 Välj identitet</span>
+        }
+      </button>
 
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {persons.map(p => {

@@ -72,7 +72,6 @@ export default function HorseManager({ T, horses, persons, onAdd, onRemove, onSa
 
   return (
     <div>
-      <h2 style={{ fontSize:14, fontWeight:"700", color:T.text, marginBottom:12 }}>🐎 Hästar</h2>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {[...horses].sort((a, b) => {
           const ai = persons.findIndex(p => p.id === a.ownerPersonId);
