@@ -5,7 +5,7 @@ import { db, auth, saveDoc } from "./firebase";
 import {
   THEMES, MEALS, DAYS, PERSON_COLORS, HORSE_COLORS,
   DEFAULT_PERSONS, DEFAULT_HORSES,
-  getWeekDates, getISOWeek, getWeekKey, fmtDate,
+  getWeekDates, getISOWeek, getWeekKey, getActiveMeals, fmtDate,
   SV_MONTHS, VAPID_PUBLIC_KEY, urlBase64ToUint8Array,
 } from "./constants";
 import AuthScreen      from "./AuthScreen";
@@ -373,7 +373,7 @@ export default function App() {
             weekOffset={weekOffset} setWeekOffset={setWeekOffset}
             weekDates={weekDates} weekNum={weekNum} dateRangeStr={dateRangeStr} todayDayIdx={todayDayIdx}
             assignments={assignments} persons={persons}
-
+            meals={getActiveMeals(weekNum)}
             onSyncWhiteboard={() => setShowWhiteboard(true)}
             pendingSwapsForOthers={pendingSwapsForOthers}
             myPersonId={myPersonId}
@@ -405,6 +405,7 @@ export default function App() {
             activeDay={activeDay} setActiveDay={setActiveDay}
             weekDates={weekDates} todayDayIdx={todayDayIdx}
             assignments={assignments} persons={persons} horses={horses}
+            meals={getActiveMeals(weekNum)}
             done={done} swapMap={swapMap} myPersonId={myPersonId}
             onAssignPerson={assignPerson}
             onToggleDone={toggleDone}

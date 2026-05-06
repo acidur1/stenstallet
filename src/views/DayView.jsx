@@ -6,6 +6,7 @@ export default function DayView({
   activeDay, setActiveDay,
   weekDates, todayDayIdx,
   assignments, persons, horses, done, swapMap,
+  meals,
   myPersonId,
   onAssignPerson, onToggleDone, onRequestSwap, onCancelSwap, onAcceptSwap,
 }) {
@@ -43,7 +44,7 @@ export default function DayView({
 
       {/* Meal cards */}
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {MEALS.map(meal => {
+        {meals.map(meal => {
           const slotKey    = `${activeDay}-${meal.id}`;
           const assignedId = assignments[slotKey];
           const person     = assignedId ? getPerson(assignedId) : null;

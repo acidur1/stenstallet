@@ -54,6 +54,10 @@ export const getISOWeek = (date) => {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 };
+// Middag is not used during summer grazing season (weeks 21–40)
+export const getActiveMeals = (weekNum) =>
+  weekNum >= 21 && weekNum <= 40 ? MEALS.filter(m => m.id !== "middag") : MEALS;
+
 export const getWeekKey = (offset) => {
   const dates = getWeekDates(offset);
   const mon = dates[0];

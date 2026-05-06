@@ -5,6 +5,7 @@ export default function WeekView({
   weekOffset, setWeekOffset,
   weekDates, weekNum, dateRangeStr, todayDayIdx,
   assignments, persons,
+  meals,
   onSyncWhiteboard,
   pendingSwapsForOthers,
   myPersonId,
@@ -89,7 +90,7 @@ export default function WeekView({
             {DAYS_FULL[todayDayIdx]} {weekDates[todayDayIdx].getDate()} {SV_MONTHS_FULL[weekDates[todayDayIdx].getMonth()]}
           </div>
           <div style={{ display:"flex", gap:6 }}>
-            {MEALS.map(meal => {
+            {meals.map(meal => {
               const pid = assignments[`${DAYS[todayDayIdx]}-${meal.id}`];
               const p   = pid ? getPerson(pid) : null;
               return (
@@ -142,8 +143,8 @@ export default function WeekView({
             </tr>
           </thead>
           <tbody>
-            {MEALS.map((meal, mealIdx) => {
-              const isLast = mealIdx === MEALS.length - 1;
+            {meals.map((meal, mealIdx) => {
+              const isLast = mealIdx === meals.length - 1;
               return (
                 <tr key={meal.id}>
                   <td style={{ padding:"4px 4px 4px 0", borderBottom: isLast ? "none" : `1px solid ${T.rowBorder}`, verticalAlign:"middle" }}>
