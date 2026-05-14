@@ -1,0 +1,8 @@
+services:
+  stenstallet:
+    build: .
+    image: stenstallet:latest
+    container_name: stenstallet-local
+    ports:
+      - "8080:80"
+    restart: unless-stopped
