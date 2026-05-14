@@ -1,0 +1,16 @@
+.git
+.gitignore
+.github
+.claude
+node_modules
+dist
+functions
+scripts
+*.md
+.env
+.env.*
+.DS_Store
+.vscode
+.idea
+npm-debug.log*
+.eslintcache

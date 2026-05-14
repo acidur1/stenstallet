@@ -1,0 +1,20 @@
+services:
+  stenstallet:
+    build: .
+    image: stenstallet:latest
+    container_name: stenstallet
+    restart: unless-stopped
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=pantry_default"
+      - "traefik.http.routers.stenstallet.rule=Host(`stenstallet.backendboys.com`)"
+      - "traefik.http.routers.stenstallet.entrypoints=websecure"
+      - "traefik.http.routers.stenstallet.tls.certresolver=letsencrypt"
+      - "traefik.http.services.stenstallet.loadbalancer.server.port=80"
+
+networks:
+  traefik:
+    external: true
+    name: pantry_default

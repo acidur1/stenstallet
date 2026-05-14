@@ -7,8 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # Start dev server (localhost:5173)
 npm run build        # Production build → dist/
-git push             # Triggers auto-deploy to stenstallet.backendboys.com
 firebase deploy --only functions   # Deploy Cloud Functions
+
+# Docker
+docker compose -f docker-compose.local.yml up --build   # Test image locally → localhost:8080
+docker compose up -d --build                            # Run on the server (behind Traefik)
 ```
 
 ## Architecture
@@ -46,6 +49,11 @@ Weeks are stored with ISO week keys (`YYYY-WXX`). `getWeekKey(offset)` in `const
 
 ## Deploy notes
 
-- Frontend: push to GitHub → auto-deploys to https://stenstallet.backendboys.com/
+- Frontend: containerized (multi-stage `Dockerfile` → nginx:alpine serving Vite `dist/`).
+  - `docker-compose.yml` is the production stack; it joins the external `pantry_default` network so the Traefik instance in the `pantry` stack routes `stenstallet.backendboys.com` → container via labels.
+  - `docker-compose.local.yml` exposes port 8080 directly for local testing (no Traefik).
+  - Deploy = SSH to server, `git pull`, `docker compose up -d --build`. There is no GitHub Action auto-deploy.
+- Firebase config is hardcoded in `src/firebase.js` (only public anon keys) — no build-time env vars needed.
+- nginx config (`nginx.conf`): SPA fallback to `index.html`; immutable cache on `/assets/*`; no-cache on `index.html` and `/sw.js` so service worker updates propagate.
 - Firebase project: `stenstallet-cdf6c` (us-central1)
 - VAPID keys stored as Firebase Secrets, not env vars
