@@ -6,7 +6,7 @@ export const DAYS_FULL      = ["Måndag","Tisdag","Onsdag","Torsdag","Fredag","L
 
 export const MEALS = [
   { id: "morgon", label: "Morgon", icon: "🔆", time: "07:00" },
-  { id: "lunch",  label: "Lunch",  icon: "🌤", time: "12:00" },
+  { id: "lunch",  label: "Lunch",  icon: "🌤", time: "13:00" },
   { id: "middag", label: "Middag", icon: "☀️", time: "17:00" },
   { id: "kvall",  label: "Kväll",  icon: "🌙", time: "20:30" },
 ];

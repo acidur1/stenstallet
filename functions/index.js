@@ -90,8 +90,8 @@ exports.remindMorgon = onSchedule(
   () => sendReminder("morgon", "Morgon", "07:00")
 );
 exports.remindLunch = onSchedule(
-  { schedule: "30 11 * * *", timeZone: "Europe/Stockholm", secrets },
-  () => sendReminder("lunch", "Lunch", "12:00")
+  { schedule: "30 12 * * *", timeZone: "Europe/Stockholm", secrets },
+  () => sendReminder("lunch", "Lunch", "13:00")
 );
 exports.remindMiddag = onSchedule(
   { schedule: "30 16 * * *", timeZone: "Europe/Stockholm", secrets },
