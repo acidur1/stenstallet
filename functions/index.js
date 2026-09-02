@@ -85,17 +85,34 @@ async function sendReminder(mealId, mealLabel, mealTime) {
 
 const secrets = [VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY];
 
-exports.remindMorgon = onSchedule(
-  { schedule: "30 6 * * *", timeZone: "Europe/Stockholm", secrets },
-  () => sendReminder("morgon", "Morgon", "07:00")
-);
-exports.remindLunch = onSchedule(
-  { schedule: "30 12 * * *", timeZone: "Europe/Stockholm", secrets },
-  () => sendReminder("lunch", "Lunch", "13:00")
-);
-exports.remindMiddag = onSchedule(
-  { schedule: "30 16 * * *", timeZone: "Europe/Stockholm", secrets },
-  () => sendReminder("middag", "Middag", "17:00")
+// Cloud Scheduler only includes 3 jobs free per billing account, so the four
+// reminders share two schedules. Which meal to remind about is derived from
+// the current hour in Stockholm (the runtime itself runs in UTC).
+const HALF_HOUR_MEALS = [
+  { id: "morgon", label: "Morgon", time: "07:00", beforeHour: 10 }, // fires 06:30
+  { id: "lunch",  label: "Lunch",  time: "13:00", beforeHour: 15 }, // fires 12:30
+  { id: "middag", label: "Middag", time: "17:00", beforeHour: 24 }, // fires 16:30
+];
+
+function getStockholmHour(date = new Date()) {
+  const hour = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).format(date);
+  return Number(hour);
+}
+
+function mealForHour(hour) {
+  return HALF_HOUR_MEALS.find(m => hour < m.beforeHour);
+}
+
+exports.remindHalfHour = onSchedule(
+  { schedule: "30 6,12,16 * * *", timeZone: "Europe/Stockholm", secrets },
+  () => {
+    const meal = mealForHour(getStockholmHour());
+    return sendReminder(meal.id, meal.label, meal.time);
+  }
 );
 exports.remindKvall = onSchedule(
   { schedule: "0 20 * * *", timeZone: "Europe/Stockholm", secrets },

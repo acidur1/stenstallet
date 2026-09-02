@@ -36,7 +36,7 @@ Single-page React app (no router) — tab state drives which view is shown. All 
 - `src/views/DayView.jsx` — meal cards per day with person picker and swap UI
 - `src/views/HistoryView.jsx` — last 8 weeks read-only
 - `src/views/PersonManager.jsx` / `HorseManager.jsx` — CRUD for persons and horses
-- `functions/index.js` — 4 scheduled Cloud Functions (07:00, 12:00, 17:00, 20:30 Stockholm time) that send Web Push reminders. VAPID keys are stored as Firebase Secrets (`defineSecret`), accessed via `.value()` inside handlers.
+- `functions/index.js` — 2 scheduled Cloud Functions that send Web Push reminders 30 min before each meal (06:30, 12:30, 16:30, 20:00 Stockholm time). `remindHalfHour` covers morgon/lunch/middag on one cron (`30 6,12,16 * * *`) and picks the meal from the current Stockholm hour; `remindKvall` runs at 20:00. Kept to 2 jobs on purpose — Cloud Scheduler only includes 3 free jobs per billing account. VAPID keys are stored as Firebase Secrets (`defineSecret`), accessed via `.value()` inside handlers.
 - `public/sw.js` — Service Worker handling push events
 
 ## Identity model
