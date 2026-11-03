@@ -1,0 +1,6 @@
+# Dokploy variant of docker-compose.yml: no traefik labels/network; attach the
+# domain stenstallet.backendboys.com -> service stenstallet, port 80 in the Dokploy UI.
+services:
+  stenstallet:
+    build: .
+    restart: unless-stopped
